@@ -27,7 +27,7 @@ def mesh_preprocessing(mesh):
     mesh_center = np.mean(mesh_vertices, axis=0)
     mesh_vertices -= mesh_center
     mesh.vertices = o3d.utility.Vector3dVector(mesh_vertices)
-    print(mesh_center,np.mean(mesh.vertices, axis=0))
+    # print(mesh_center,np.mean(mesh.vertices, axis=0))
 
     return mesh
 
@@ -83,6 +83,7 @@ def ray_casting(name, textured_mesh):
         # ploting depth image
         # plt.imshow(img, cmap='gray')
         # plt.show()
+        # break
 
         # exit when there is no mesh to intersect with
         if np.max(intersect) == 0:
@@ -97,7 +98,7 @@ def ray_casting(name, textured_mesh):
         normals = ans["primitive_normals"].numpy()
         normals_mask = (normals[:, :, 1] < 0) & (normals[:, :, 2] < 0)
         direction = np.where(normals_mask)
-        print(direction)
+        # print(normals_mask, direction)
 
         # exit(7)
         # sampling
@@ -108,10 +109,10 @@ def ray_casting(name, textured_mesh):
             recent_image = surfaces[list(surfaces.keys())[-1]]
             distance_diff = img - recent_image
 
-            for point in zip(normals_mask[0], normals_mask[1]):
-                x, y = int(point[0]), int(point[1])
-                samples = np.linspace(0, distance_diff[x][y], num=5)
-                for sample in samples[1:-1]:
+            for point in zip(direction[0], direction[1]):
+                x, y = point[0], point[1]
+                samples = np.linspace(0, distance_diff[x][y], num=25)
+                for sample in samples:
                     point = list(point)
                     z = img[x][y] - sample
                     sdf_front = recent_image[x][y] - z
@@ -136,12 +137,16 @@ def ray_casting(name, textured_mesh):
     npz_array = np.delete(npz_array, 0, axis=0)
     print(npz_array)
 
-    print(npz_array[:, :3])
-    fig = plt.figure()
-    ax = fig.add_subplot(111, projection='3d')
-    ax.scatter(npz_array[:, 0], npz_array[:, 1], npz_array[:, 2], c=npz_array[:, 3], cmap='viridis', marker='o')
-    ax.scatter(mesh_vertices[:, 0], mesh_vertices[:, 1], mesh_vertices[:, 2], c='r', marker='x')
-    plt.show()
+    # print(npz_array[:, :3])
+    # fig = plt.figure()
+    # ax = fig.add_subplot(111, projection='3d')
+    # ax.scatter(npz_array[:, 0], npz_array[:, 1], npz_array[:, 2], c=npz_array[:, 3], cmap='viridis', marker='x')
+    # # ax.scatter(mesh_vertices[:, 0], mesh_vertices[:, 1], mesh_vertices[:, 2], c='r', marker='x')
+    # plt.show()
+
+    # pcd = o3d.geometry.PointCloud()
+    # pcd.points = o3d.utility.Vector3dVector(npz_array[:, :3])
+    # o3d.visualization.draw_geometries([pcd])
 
     # exit(7)
 
