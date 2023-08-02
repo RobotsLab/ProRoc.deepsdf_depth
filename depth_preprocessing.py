@@ -7,6 +7,8 @@ import sys
 
 
 def load_data(json_path):
+    '''Loading filenames with name of category and .npz extension from .json file.
+    Afterwards it loads .obj file with particular name.'''
     loaded_data = {}
     with open(json_path) as j:
         json_data = json.load(j)
@@ -21,21 +23,105 @@ def load_data(json_path):
 
     return loaded_data
 
+def magnitude(vector):
+    '''Calculate length of vector of every dimension'''
+    return np.sqrt(sum(pow(element, 2) for element in vector))
+
+def vec_towards_triangle(triangle, vertices):
+    '''Find vector directed towards center of triangle.'''
+    vert1, vert2, vert3 = triangle[0], triangle[1], triangle[2]
+    target_point = np.mean([vertices[vert1], vertices[vert2], vertices[vert3]], axis=0)
+
+    return target_point
+
 def mesh_preprocessing(mesh):
+    '''This function normalize mesh size'''
     mesh_vertices = mesh.vertices
     mesh_vertices = np.asarray(mesh_vertices)
     mesh_center = np.mean(mesh_vertices, axis=0)
+
+    # Centering
     mesh_vertices -= mesh_center
+
+    # Scaling
+    max_distance = 0
+    for vert in mesh_vertices:
+        distance = magnitude(vert)
+        max_distance = max(max_distance, distance)
+    mesh_vertices /= max_distance
+    # print('Max distance:', max_distance)
+
     mesh.vertices = o3d.utility.Vector3dVector(mesh_vertices)
-    # print(mesh_center,np.mean(mesh.vertices, axis=0))
+    print(mesh_center,np.mean(mesh.vertices, axis=0))
 
     return mesh
 
+def remove_duplicated_mesh(mesh):
+    '''Remove meshes with the same vertices'''
+    mesh = mesh.compute_triangle_normals()
+    mesh = mesh.normalize_normals()
+    normals = mesh.triangle_normals
+    triangles = np.asarray(mesh.triangles)
+    vertices = np.asarray(mesh.vertices)
+
+    number_of_duplicates = 0
+    number_of_votes = 21
+
+    y_samples = np.linspace(-0.6, 0.6, number_of_votes)
+    voting_points = np.zeros((1, 3))
+    for sample in y_samples:
+        voting_points = np.append(voting_points, np.array([0, sample, 0])[np.newaxis, :], axis=0)
+    voting_points = np.delete(voting_points, 0, axis=0)
+
+    triangles_to_delete = []
+    for itr, triangle in enumerate(triangles):
+        for i, duplicat in enumerate(triangles):
+            if i <= itr:
+                continue
+            elif sorted(list(np.asarray(triangle))) == sorted(list(np.asarray(duplicat))):
+                # print(f"They are the same: {itr}. {triangle} and {i}. {duplicat}")
+                # print(f"Normals 1: {normals[itr]}, Normals 2: {normals[i]}")
+
+                triangle_center = vec_towards_triangle(triangle=triangle, vertices=vertices)
+                votes = 0
+                for v_point in voting_points[0:, :]:
+                    vector = triangle_center - v_point
+
+                    theta1 = np.dot(vector, normals[itr])
+                    theta2 = np.dot(vector, normals[i]) 
+
+                    # zbieranie głosów za tym że normalna jest zgodna, tzn. skierowana na zewnątrz obiektu
+                    if theta1 > 0:
+                        votes += 1
+                    
+                    # print(v_point, vector, theta1, theta2)  # 1 = pokrywa się z wektorem, -1 = jest skierowany przeciwnie
+                # print('itr:', itr, 'i:', i)
+                # print('votes:', votes)
+                if votes > number_of_votes/2:
+                    triangles_to_delete.append(i)
+                else:
+                    triangles_to_delete.append(itr)
+
+                # zliczanie powtarzających się meshy
+                if i > itr:
+                    number_of_duplicates += 1
+
+    # # visualization
+    # origin = o3d.geometry.TriangleMesh.create_coordinate_frame(size=1)
+    # pcd = o3d.geometry.PointCloud()
+    # pcd.points = o3d.utility.Vector3dVector(voting_points)
+
+    # o3d.visualization.draw_geometries([mesh, origin, pcd])
+
+    return triangles_to_delete
+    
+
 def ray_casting(name, textured_mesh):
-    print(name)
+    # print(name)
     
     preprocessed_mesh = mesh_preprocessing(textured_mesh)
-    mesh_vertices = np.asarray(preprocessed_mesh.vertices)
+    duplicated_triangle_idx = remove_duplicated_mesh(preprocessed_mesh)
+    preprocessed_mesh.remove_triangles_by_index(duplicated_triangle_idx)
     
     # np.set_printoptions(threshold=sys.maxsize)
 
@@ -53,10 +139,11 @@ def ray_casting(name, textured_mesh):
 
     npz_array = np.zeros((1,4))
     surfaces = {}
+    first_img = True
 
     while True:
         rays = o3d.t.geometry.RaycastingScene.create_rays_pinhole(
-            fov_deg=45,
+            fov_deg=60,
             center=[0.,0.,0.],
             eye=[0,1.5,1.5],
             up=[0,-1,0],
@@ -74,14 +161,13 @@ def ray_casting(name, textured_mesh):
         # points out of ROI values == 0
         img[img == np.inf] = 0
         img = img.astype(np.float32)
-
-
-        ROI = img[img != 0]
-        ROI_x = np.where(img != 0)[0]
-        ROI_y = np.where(img != 0)[1]
+        # print(img, img.shape)
 
         # ploting depth image
-        # plt.imshow(img, cmap='gray')
+        if first_img:
+            plt.imshow(img, cmap='gray')
+            plt.title(name)
+            first_img = False
         # plt.show()
         # break
 
@@ -95,23 +181,18 @@ def ray_casting(name, textured_mesh):
         ROI_ids_x = np.where(ids != np.max(ids))[0]
         ROI_ids_y = np.where(ids != np.max(ids))[1]
 
-        normals = ans["primitive_normals"].numpy()
-        normals_mask = (normals[:, :, 1] < 0) & (normals[:, :, 2] < 0)
-        direction = np.where(normals_mask)
-        # print(normals_mask, direction)
+        # normals = ans["primitive_normals"].numpy()
 
-        # exit(7)
-        # sampling
-        # mam x, y
-
-        distance = np.zeros((width, height))
         if surfaces:
             recent_image = surfaces[list(surfaces.keys())[-1]]
             distance_diff = img - recent_image
 
-            for point in zip(direction[0], direction[1]):
+            for point in zip(ROI_ids_x, ROI_ids_y):
                 x, y = point[0], point[1]
-                samples = np.linspace(0, distance_diff[x][y], num=25)
+
+                samples = np.linspace(0, distance_diff[x][y], num=2)
+                if distance_diff[x][y] == 0:
+                    continue
                 for sample in samples:
                     point = list(point)
                     z = img[x][y] - sample
@@ -126,36 +207,39 @@ def ray_casting(name, textured_mesh):
         surfaces[np.max(intersect)] = img
 
         preprocessed_mesh.remove_triangles_by_index(list(ROI_ids))
+
         mesh = o3d.t.geometry.TriangleMesh.from_legacy(preprocessed_mesh)
 
         # Create a scene and add the triangle mesh
+        mesh.compute_vertex_normals()
         scene = o3d.t.geometry.RaycastingScene()
         scene.add_triangles(mesh)
         
         # o3d.visualization.draw_geometries([preprocessed_mesh])
 
     npz_array = np.delete(npz_array, 0, axis=0)
-    print(npz_array)
+    # print(npz_array)
 
     # print(npz_array[:, :3])
-    # fig = plt.figure()
-    # ax = fig.add_subplot(111, projection='3d')
-    # ax.scatter(npz_array[:, 0], npz_array[:, 1], npz_array[:, 2], c=npz_array[:, 3], cmap='viridis', marker='x')
-    # # ax.scatter(mesh_vertices[:, 0], mesh_vertices[:, 1], mesh_vertices[:, 2], c='r', marker='x')
-    # plt.show()
+    fig = plt.figure()
+    ax = fig.add_subplot(111, projection='3d')
+    ax.scatter(npz_array[:, 0], npz_array[:, 1], npz_array[:, 2], c=npz_array[:, 3], cmap='viridis', marker='.')
+    plt.title(name)
+    plt.show()
 
     # pcd = o3d.geometry.PointCloud()
     # pcd.points = o3d.utility.Vector3dVector(npz_array[:, :3])
     # o3d.visualization.draw_geometries([pcd])
 
-    # exit(7)
+    exit(7)
 
 
 if __name__ == '__main__':
     json_path = 'examples/splits/YCB_bottle_mug_train.json'
     data = load_data(json_path)
     for name, mesh in data.items():
-        ray_casting(name, mesh)
+        if 'bottle' in name and '_x0' in name: #  ('mug' in name and not '_' in name) or ('bottle' in name and '_x0' in name):
+            ray_casting(name, mesh)
     
     
 
