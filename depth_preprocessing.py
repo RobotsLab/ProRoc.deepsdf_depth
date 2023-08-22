@@ -23,6 +23,11 @@ def load_data(json_path):
 
     return loaded_data
 
+def visualize_pcd(filename):
+    name = os.path.join("ycb1/depth_to_pcd/", filename.split("/")[-1] + ".pcd")
+    pcd = o3d.io.read_point_cloud(name)
+    o3d.visualization.draw_geometries([pcd])
+        
 def magnitude(vector):
     '''Calculate length of vector of every dimension'''
     return np.sqrt(sum(pow(element, 2) for element in vector))
@@ -34,8 +39,9 @@ def vec_towards_triangle(triangle, vertices):
 
     return target_point
 
-def mesh_preprocessing(mesh):
+def mesh_preprocessing(input_mesh):
     '''This function normalize mesh size'''
+    mesh = o3d.geometry.TriangleMesh(input_mesh)
     mesh_vertices = mesh.vertices
     mesh_vertices = np.asarray(mesh_vertices)
     mesh_center = np.mean(mesh_vertices, axis=0)
@@ -48,8 +54,18 @@ def mesh_preprocessing(mesh):
     for vert in mesh_vertices:
         distance = magnitude(vert)
         max_distance = max(max_distance, distance)
-    
+    # max_distance *= 10
     mesh_vertices /= max_distance
+
+    # mesh_vertices[:, 0] += 0.
+    # mesh_vertices[:, 1] -= 1.
+    # mesh_vertices[:, 2] += 0.
+
+    radians = -np.pi/2
+    rotation_matrix = np.array([[np.cos(radians), -np.sin(radians), 0],
+            [np.sin(radians), np.cos(radians), 0],
+            [0, 0, 1]])
+    mesh.rotate(rotation_matrix, center=[0,0,0])
 
     mesh.vertices = o3d.utility.Vector3dVector(mesh_vertices)
     print(mesh_center,np.mean(mesh.vertices, axis=0))
@@ -129,7 +145,7 @@ def sampling(start, end, quantity, linspace=True):
     if linspace:
         samples = np.linspace(start, end, num=quantity)
     else:
-        mu = end/2
+        mu = (end - start) / 2
         sigma = mu/3 # mean and standard deviation
         samples = np.random.normal(mu, sigma, quantity)
         samples = u_distribution(samples, mu)
@@ -143,7 +159,8 @@ def sampling(start, end, quantity, linspace=True):
 
 def ray_casting(name, textured_mesh, visualize=''):
     print("Processing: ", name)
-    
+    cube = o3d.geometry.TriangleMesh.create_box().translate([0, 0, 0])
+    cube = o3d.t.geometry.TriangleMesh.from_legacy(cube)
     preprocessed_mesh = mesh_preprocessing(textured_mesh)
     duplicated_triangle_idx = remove_duplicated_mesh(preprocessed_mesh)
     preprocessed_mesh.remove_triangles_by_index(duplicated_triangle_idx)
@@ -162,28 +179,32 @@ def ray_casting(name, textured_mesh, visualize=''):
 # scale x, y, z to <0; 1>
 # google typical camera parameters azure kinect
 
-    # parameters from .xml
-    # extrinsic_matrix = o3d.core.Tensor([[-0.809735, 0.364392, -0.459944, 0.666247],
-    #                                    [0.585098, 0.560975, -0.585635, 0.344917],
-    #                                    [0.0446166, -0.743321, -0.667446, 0.487054],
-    #                                    [0, 0, 0, 1]])
-
     # camera parameters
     Fx_depth = 924.348
     Fy_depth = 924.921
     Cx_depth = 646.676
     Cy_depth = 344.145
+    s = Fx_depth/Fy_depth
     width=1280
     height=720
+    sub_img_width, sub_img_height = 350, 350
+    sub_img_x, sub_img_y = 0, 0
 
     npz_array = np.zeros((1,4))
     surfaces = {}
-    first_img = True
+    show_just_first_img = True
     angle = np.deg2rad(-180)
 
     intrinsic_matrix = o3d.core.Tensor([[Fx_depth, 0, Cx_depth],
                                        [0, Fy_depth, Cy_depth],
                                        [0, 0, 1]])    
+    # parameters from .xml
+    # extrinsic_matrix = o3d.core.Tensor([[-0.809735, 0.364392, -0.459944, 0.666247],
+    #                                    [0.585098, 0.560975, -0.585635, 0.344917],
+    #                                    [0.0446166, -0.743321, -0.667446, 0.487054],
+    #                                    [0, 0, 0, 1]])
+    
+    # parameters from experiments
     extrinsic_matrix = o3d.core.Tensor([[1, 0, 0, 0],
                                        [0, np.cos(angle), np.sin(angle), 0],
                                        [0, np.sin(angle), np.cos(angle), 5],
@@ -209,38 +230,47 @@ def ray_casting(name, textured_mesh, visualize=''):
         img = img.astype(np.float32)
 
         # ploting depth image
-        if first_img and visualize.lower() == 'depth':
+        if show_just_first_img and visualize.lower() == 'depth':
             plt.imshow(img, cmap='gray')
             plt.title(name)
-            first_img = False
+            show_just_first_img = False
             plt.show()
 
         # exit when there is no mesh to intersect with
         if np.max(intersect) == 0:
             break
 
-        #find hit triangle
+        # subimage
+        ROI = np.where(img != 0)
+        # find hit triangle
         ids = ans["primitive_ids"].numpy()
         ROI_ids = ids[ids != np.max(ids)]
-        ROI_ids_x = np.where(ids != np.max(ids))[0]
-        ROI_ids_y = np.where(ids != np.max(ids))[1]
+        ROI_ids_x = np.where(ids != np.max(ids))[1]
+        ROI_ids_y = np.where(ids != np.max(ids))[0]
 
+        sub_dims = np.where(img != 0)
+        sub_img_x = (np.min(sub_dims[1]) + np.max(sub_dims[1])) // 2 - sub_img_width // 2
+        sub_img_y = (np.min(sub_dims[0]) + np.max(sub_dims[0])) // 2 - sub_img_height // 2
+        sub_img = np.array(img[sub_img_y:sub_img_y+sub_img_height, sub_img_x:sub_img_x+sub_img_width])
+        print('x: ', np.min(sub_dims[0]), np.max(sub_dims[0]), 'y: ', np.min(sub_dims[1]), np.max(sub_dims[1]))
+        plt.imshow(sub_img, cmap='gray')
+        plt.show()
         # normals = ans["primitive_normals"].numpy()
 
-        if surfaces:
+        if len(surfaces.keys()) == 1:
             recent_image = surfaces[list(surfaces.keys())[-1]]
+            first_image = surfaces[list(surfaces.keys())[0]]
             distance_diff = img - recent_image
-            for point in zip(ROI_ids_x, ROI_ids_y):
-                x, y = point[0], point[1]
 
-                samples = sampling(0, distance_diff[x][y], 4, linspace=True)
+            for x, y in zip(ROI_ids_x, ROI_ids_y):
+                samples = sampling(0, distance_diff[y][x], 5, linspace=True)
 
-                if distance_diff[x][y] == 0:
+                if distance_diff[y][x] == 0:
                     continue
 
-                z = img[x][y] - samples
-                sdf_front = recent_image[x][y] - z
-                sdf_back = z - img[x][y]
+                z = img[y][x] - samples
+                sdf_front = recent_image[y][x] - z
+                sdf_back = z - img[y][x]
                 sdf = np.maximum(sdf_front, sdf_back)
                 point_data = np.column_stack((np.full(sdf.shape, x),   
                                         np.full(sdf.shape, y),
@@ -263,99 +293,52 @@ def ray_casting(name, textured_mesh, visualize=''):
         # o3d.visualization.draw_geometries([preprocessed_mesh])
 
     npz_array = np.delete(npz_array, 0, axis=0)
-    pcd = []
-    for npz in npz_array:
-        z = npz[2]
-        x = (Cx_depth - npz[0]) * z / Fx_depth
-        y = (Cy_depth - npz[1]) * z / Fy_depth
-        pcd.append([x, y, z])
+    
+    # depth image to point cloud
+    z = npz_array[:, 2]
+    print('x', np.min(npz_array[:, 0]), np.max(npz_array[:, 0]))
+    print('y', np.min(npz_array[:, 1]), np.max(npz_array[:, 1]))
+    print('z', np.min(npz_array[:, 2]), np.max(npz_array[:, 2]))
 
+    x = (Cx_depth - npz_array[:, 0]) * z / Fx_depth  # y on image is x in real world
+    y = (Cy_depth - npz_array[:, 1]) * z / Fy_depth  # x on image is y in real world
+    pcd = np.column_stack((x, y, z))
     pcd_o3d = o3d.geometry.PointCloud()  # create point cloud object
     pcd_o3d.points = o3d.utility.Vector3dVector(pcd)  # set pcd_np as the point cloud points
 
     # Visualize:
     if visualize.lower() == 'cloud':
+        # radians = -np.pi/2
+        # rotation_matrix = np.array([[np.cos(radians), -np.sin(radians), 0],
+        #         [np.sin(radians), np.cos(radians), 0],
+        #         [0, 0, 1]])
+        # textured_mesh.rotate(rotation_matrix, center=[0,0,0])
+        # origin = o3d.geometry.TriangleMesh.create_coordinate_frame(size=1)
         o3d.visualization.draw_geometries([pcd_o3d])
+
     destination_filename = f"/home/piotr/Desktop/ProRoc/DeepSDF/ycb1/depth_to_pcd/{name.split('/')[-1]}.pcd"
-    o3d.io.write_point_cloud(destination_filename, pcd_o3d)
+    # o3d.io.write_point_cloud(destination_filename, pcd_o3d)
     print(f"SAVED POINT CLOUD: {destination_filename}")
 
-    # saved_pcd = o3d.io.read_point_cloud(destination_filename)
-    # o3d.visualization.draw_geometries([saved_pcd])
-
-    # exit(7)
+    exit(7)
 
 
 if __name__ == '__main__':
-    json_path = 'examples/splits/YCB_depth_image_train.json'
+    json_path = 'examples/splits/YCB_depth_image_train.json' # depth_image_train.json'
     data = load_data(json_path)
-    preprocessed_files = os.listdir("/home/piotr/Desktop/ProRoc/DeepSDF/ycb1/depth_to_pcd/")
+    # preprocessed_files = os.listdir("/home/piotr/Desktop/ProRoc/DeepSDF/ycb1/depth_to_pcd/")
     for name, mesh in data.items():
-        if 'bottle' in name and '_x0' in name: #  ('mug' in name and not '_' in name) or ('bottle' in name and '_x0' in name):
-            source_filename = name.split('/')[-1] + '.pcd'
-            if not source_filename in preprocessed_files:
-                ray_casting(name, mesh, 'cloud')
-            else:
-                print(f"{source_filename} already exists.")
-    
-    
+        if 'bottle' in name and '_x0' in name: #  ('mug' in name and not '_' in name) or ('bottle' in name and '_x0' in name):            
+            ray_casting(name, mesh, 'cloud')           
+            # source_filename = name.split('/')[-1] + '.pcd'
+            # if not source_filename in preprocessed_files:
+            #     ray_casting(name, mesh, 'cloud')
+            # else:
+            #     print(f"{source_filename} already exists.")
+        # if "1ffd7113492d375593202bf99dddc268_x0y0z0" in name:
+        #     visualize_pcd(filename=name)
 
-
-
-
-    # first = True
-    # first_img = np.zeros((height, width))
-    # long_dist = np.zeros((height, width))
-
-    # mask = long_dist < img
-    # long_dist[mask] = img[mask]
-
-    # if first:
-    #     first_img = img[:]
-    #     first = False
-
-    # KDTree APPROACH
-    # print(first_img[first_img != 0], first_img[first_img != 0].shape)
-    # print(long_dist[long_dist != 0], long_dist[long_dist != 0].shape)
-    # long_dist_x = np.where(long_dist != 0)[0]
-    # long_dist_y = np.where(long_dist != 0)[1]      
-
-    # tree = KDTree(mesh_vertices)
-
-    # for i in range(long_dist[long_dist != 0].shape[0]):
-    #     x, y = long_dist_x[i], long_dist_y[i]
-    #     front_img = first_img[x][y]
-    #     back_img = long_dist[x][y]
-    #     # print(x, y, front_img, back_img) 
-
-    #     samples = np.linspace(front_img, back_img, num=5)
-    #     for z in samples:
-    #         npz_array = np.append(npz_array, np.array([x, y, z, 0])[np.newaxis, :], axis=0)
-    #         distances, indices = tree.query(np.array([x, y, z]), k=1)
-    #         print(distances, indices)
-    #         print(x, y, z)
-    #         print(mesh_vertices[indices])
-
-    # Pass xyz to Open3D.o3d.geometry.PointCloud and visualize
-    # pcd = o3d.geometry.PointCloud()
-    # pcd.points = o3d.utility.Vector3dVector(npz_array[:, :3])
-    # o3d.io.write_point_cloud("test.pcd", pcd)
-    # pcd_load = o3d.io.read_point_cloud("test.pcd")
-    # o3d.visualization.draw_geometries([pcd_load])
-
-
-                #     if distance_diff[x][y] == 0:
-                #     continue
-                # # for sample in samples:
-                # z = img[x][y] - samples
-                # sdf_front = recent_image[x][y] - z
-                # sdf_back = z - img[x][y]
-                # sdfs = np.concatenate([sdf_back[:, np.newaxis], sdf_front[:, np.newaxis]], axis=1)
-                # print(sdfs.shape)
-                # sdf = np.max(sdfs, axis=1)
-                # print(sdf.shape)
-                # result = np.concatenate([np.full((len(samples), 2), [x, y]), samples[:, np.newaxis], sdf[:, np.newaxis]], axis=1)
-                # npz_array = np.concatenate([npz_array, result], axis=0)
-                # print(result.shape)
-
-                
+# DO POPRAWY
+# /home/piotr/Desktop/ProRoc/DeepSDF/ycb1/depth_to_pcd/29b6f9c7ae76847e763c517ce709a8cc_x0y0z0.pcd
+# /home/piotr/Desktop/ProRoc/DeepSDF/ycb1/depth_to_pcd/9cec36de93bb49d3f07ead639233915e_x0y0z0.pcd
+# /home/piotr/Desktop/ProRoc/DeepSDF/ycb1/depth_to_pcd/b95559b4f2146b6a823177feb9bf5114_x0y0z0.pcd
