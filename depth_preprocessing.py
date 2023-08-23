@@ -4,6 +4,7 @@ import os
 import numpy as np
 import matplotlib.pyplot as plt
 import sys
+from depth_utils import *
 
 
 def load_data(json_path):
@@ -17,27 +18,11 @@ def load_data(json_path):
     for category, file_name in json_data[folder_name].items():
         for fn in sorted(file_name):
             name = os.path.join(category, fn)
-            file_path = os.path.join(folder_name, name, 'models/model_normalized.obj')
+            file_path = os.path.join(folder_name, name, 'model_normalized.obj')
             textured_mesh = o3d.io.read_triangle_mesh(file_path)
             loaded_data[name] = textured_mesh
 
     return loaded_data
-
-def visualize_pcd(filename):
-    name = os.path.join("ycb1/depth_to_pcd/", filename.split("/")[-1] + ".pcd")
-    pcd = o3d.io.read_point_cloud(name)
-    o3d.visualization.draw_geometries([pcd])
-        
-def magnitude(vector):
-    '''Calculate length of vector of every dimension'''
-    return np.sqrt(sum(pow(element, 2) for element in vector))
-
-def vec_towards_triangle(triangle, vertices):
-    '''Find vector directed towards center of triangle.'''
-    vert1, vert2, vert3 = triangle[0], triangle[1], triangle[2]
-    target_point = np.mean([vertices[vert1], vertices[vert2], vertices[vert3]], axis=0)
-
-    return target_point
 
 def mesh_preprocessing(input_mesh):
     '''This function normalize mesh size'''
@@ -47,28 +32,26 @@ def mesh_preprocessing(input_mesh):
     mesh_center = np.mean(mesh_vertices, axis=0)
 
     # Centering
-    mesh_vertices -= mesh_center
+    # mesh_vertices -= mesh_center
 
     # Scaling
     max_distance = 0
     for vert in mesh_vertices:
         distance = magnitude(vert)
         max_distance = max(max_distance, distance)
-    # max_distance *= 10
+    max_distance *= 5
     mesh_vertices /= max_distance
 
-    # mesh_vertices[:, 0] += 0.
-    # mesh_vertices[:, 1] -= 1.
-    # mesh_vertices[:, 2] += 0.
+    # TU BĘDZIE AUGMENTACJA augment()
+    # mesh_vertices += np.array([0.49066027, -0.02950335,  0.21953733])
 
-    radians = -np.pi/2
-    rotation_matrix = np.array([[np.cos(radians), -np.sin(radians), 0],
-            [np.sin(radians), np.cos(radians), 0],
-            [0, 0, 1]])
-    mesh.rotate(rotation_matrix, center=[0,0,0])
+    # radians = -np.pi/2
+    # rotation_matrix = np.array([[np.cos(radians), -np.sin(radians), 0],
+    #         [np.sin(radians), np.cos(radians), 0],
+    #         [0, 0, 1]])
+    # mesh.rotate(rotation_matrix, center=[0,0,0])
 
     mesh.vertices = o3d.utility.Vector3dVector(mesh_vertices)
-    print(mesh_center,np.mean(mesh.vertices, axis=0))
 
     return mesh
 
@@ -81,13 +64,6 @@ def remove_duplicated_mesh(mesh):
     vertices = np.asarray(mesh.vertices)
 
     number_of_duplicates = 0
-    number_of_votes = 21
-
-    y_samples = np.linspace(-0.6, 0.6, number_of_votes)
-    voting_points = np.zeros((1, 3))
-    for sample in y_samples:
-        voting_points = np.append(voting_points, np.array([0, sample, 0])[np.newaxis, :], axis=0)
-    voting_points = np.delete(voting_points, 0, axis=0)
 
     triangles_to_delete = []
     for itr, triangle in enumerate(triangles):
@@ -95,89 +71,41 @@ def remove_duplicated_mesh(mesh):
             if i <= itr:
                 continue
             elif sorted(list(np.asarray(triangle))) == sorted(list(np.asarray(duplicat))):
-                # print(f"They are the same: {itr}. {triangle} and {i}. {duplicat}")
-                # print(f"Normals 1: {normals[itr]}, Normals 2: {normals[i]}")
+
+                number_of_duplicates += 1
 
                 triangle_center = vec_towards_triangle(triangle=triangle, vertices=vertices)
-                votes = 0
-                # max_dot_product = 0
+                mesh_center = np.mean(vertices, axis=0)
+                vector = triangle_center - mesh_center
+                theta1 = np.dot(vector, normals[itr])
 
-                for v_point in voting_points[0:, :]:
-                    vector = triangle_center - v_point
-
-                    theta1 = np.dot(vector, normals[itr])
-                    theta2 = np.dot(vector, normals[i]) 
-                    # max_dot_product = max(max_dot_product, abs(theta1))
-
-                    # zbieranie głosów za tym że normalna jest zgodna, tzn. skierowana na zewnątrz obiektu
-                    if theta1 > 0:
-                        votes += 1
-                    
-                    # print(v_point, vector, theta1, theta2)  # 1 = pokrywa się z wektorem, -1 = jest skierowany przeciwnie
-
-                # print(max_dot_product, 'itr:', itr, 'i:', i, 'votes:', votes)
-                if votes > number_of_votes/2:
+                if theta1 > 0:
                     triangles_to_delete.append(i)
                 else:
                     triangles_to_delete.append(itr)
-
-                # zliczanie powtarzających się meshy
-                if i > itr:
-                    number_of_duplicates += 1
-
     # # visualization
     # origin = o3d.geometry.TriangleMesh.create_coordinate_frame(size=1)
     # pcd = o3d.geometry.PointCloud()
     # pcd.points = o3d.utility.Vector3dVector(voting_points)
 
     # o3d.visualization.draw_geometries([mesh, origin, pcd])
-    return triangles_to_delete
+
+    print(f"All triangles: {triangles.shape[0]}",
+          f"\nDuplicated triangles: {number_of_duplicates}",
+          f"\nDuplication Ratio: {100*number_of_duplicates/triangles.shape[0]}%")
     
-def u_distribution(normal_distribution, mean):
-    '''Changes normal distribution to U-shaped distribution'''
-    result = np.array(normal_distribution)
-    result = np.where(result < mean, mean - result, result)
-    result = np.where(result > mean, 3 * mean - result, result)
-    # print(result)
-    return result
+    return triangles_to_delete
 
-def sampling(start, end, quantity, linspace=True):
-    if linspace:
-        samples = np.linspace(start, end, num=quantity)
-    else:
-        mu = (end - start) / 2
-        sigma = mu/3 # mean and standard deviation
-        samples = np.random.normal(mu, sigma, quantity)
-        samples = u_distribution(samples, mu)
+def sampling(quantity):
 
-        # visualisation
-        # count, bins, ignored = plt.hist(samples, 20, density=True)
-        # plt.plot(bins, 1/(sigma * np.sqrt(2 * np.pi)) * np.exp( - (bins - mu)**2 / (2 * sigma**2) ), linewidth=2, color='r')
-        # plt.show()
+    mu = 0
+    sigma = 0.0005 # mean and standard deviation
+    samples = np.random.normal(mu, sigma, quantity)
 
     return samples
 
 def ray_casting(name, textured_mesh, visualize=''):
     print("Processing: ", name)
-    cube = o3d.geometry.TriangleMesh.create_box().translate([0, 0, 0])
-    cube = o3d.t.geometry.TriangleMesh.from_legacy(cube)
-    preprocessed_mesh = mesh_preprocessing(textured_mesh)
-    duplicated_triangle_idx = remove_duplicated_mesh(preprocessed_mesh)
-    preprocessed_mesh.remove_triangles_by_index(duplicated_triangle_idx)
-    
-    # np.set_printoptions(threshold=sys.maxsize)
-
-    mesh = o3d.t.geometry.TriangleMesh.from_legacy(preprocessed_mesh)
-    scene = o3d.t.geometry.RaycastingScene()
-    scene.add_triangles(mesh)
-
-# transformation from depth image to point cloud
-# pinhole camera model
-# what parameters i need
-# parameters of azure kinect
-# transformation point cloud -> depth ; depth -> point cloud
-# scale x, y, z to <0; 1>
-# google typical camera parameters azure kinect
 
     # camera parameters
     Fx_depth = 924.348
@@ -187,99 +115,155 @@ def ray_casting(name, textured_mesh, visualize=''):
     s = Fx_depth/Fy_depth
     width=1280
     height=720
-    sub_img_width, sub_img_height = 350, 350
-    sub_img_x, sub_img_y = 0, 0
-
-    npz_array = np.zeros((1,4))
-    surfaces = {}
-    show_just_first_img = True
-    angle = np.deg2rad(-180)
 
     intrinsic_matrix = o3d.core.Tensor([[Fx_depth, 0, Cx_depth],
                                        [0, Fy_depth, Cy_depth],
                                        [0, 0, 1]])    
-    # parameters from .xml
-    # extrinsic_matrix = o3d.core.Tensor([[-0.809735, 0.364392, -0.459944, 0.666247],
-    #                                    [0.585098, 0.560975, -0.585635, 0.344917],
-    #                                    [0.0446166, -0.743321, -0.667446, 0.487054],
-    #                                    [0, 0, 0, 1]])
+
+    # Rotation angles in radians
+    roll = np.deg2rad(0)  # Rotation around X-axis
+    pitch = np.deg2rad(-240)  # Rotation around Y-axis
+    yaw = np.deg2rad(270)  # Rotation around Z-axis
+
+    # Translation values
+    tx = -.03
+    ty = -.03
+    tz = 1.5
+
+    # Create rotation matrices for each axis
+    rotation_x = np.array([[1, 0, 0],
+                        [0, np.cos(roll), -np.sin(roll)],
+                        [0, np.sin(roll), np.cos(roll)]])
+
+    rotation_y = np.array([[np.cos(pitch), 0, np.sin(pitch)],
+                        [0, 1, 0],
+                        [-np.sin(pitch), 0, np.cos(pitch)]])
+
+    rotation_z = np.array([[np.cos(yaw), -np.sin(yaw), 0],
+                        [np.sin(yaw), np.cos(yaw), 0],
+                        [0, 0, 1]])
+
+    # Combine rotation matrices
+    rotation_matrix = np.dot(np.dot(rotation_z, rotation_y), rotation_x)
+
+    # Create the extrinsic matrix
+    extrinsic_matrix = np.eye(4)
+    extrinsic_matrix[:3, :3] = rotation_matrix
+    extrinsic_matrix[:3, 3] = [tx, ty, tz]
     
-    # parameters from experiments
-    extrinsic_matrix = o3d.core.Tensor([[1, 0, 0, 0],
-                                       [0, np.cos(angle), np.sin(angle), 0],
-                                       [0, np.sin(angle), np.cos(angle), 5],
-                                       [0, 0, 0, 1]])
-    
+    # END OF CAMERA SETTINGS
+
+    preprocessed_mesh = mesh_preprocessing(textured_mesh)
+    duplicated_triangle_idx = remove_duplicated_mesh(preprocessed_mesh)
+    preprocessed_mesh.remove_triangles_by_index(duplicated_triangle_idx)
+
+    mesh = o3d.t.geometry.TriangleMesh.from_legacy(preprocessed_mesh)
+    scene = o3d.t.geometry.RaycastingScene()
+
+    scene.add_triangles(mesh)
+
+    npz_array = np.zeros((1,4))
+    surfaces = {}
+    first_iteration = True
+    mask = np.zeros((height, width))
+    itr = 0
+
+    sub_img_width, sub_img_height = 350, 350
+    sub_img_x, sub_img_y = 0, 0
+
     while True:
         rays = o3d.t.geometry.RaycastingScene.create_rays_pinhole(
-            intrinsic_matrix,
-            extrinsic_matrix,
-            width,
-            height
+            intrinsic_matrix=intrinsic_matrix,
+            extrinsic_matrix=extrinsic_matrix,
+            width_px=width,
+            height_px=height
         )
+
+        # Matrix (height, width) of intersections
         intersect = scene.count_intersections(
             rays
         ).numpy()
 
-        # We can directly pass the rays tensor to the cast_rays function.
+        # print(len(np.where(intersect == 1)[0]), len(np.where(intersect == 2)[0]), len(np.where(intersect == 3)[0]), len(np.where(intersect == 4)[0]), len(np.where(intersect > 4)[0]))
+
+        # Depth image.
         ans = scene.cast_rays(rays)
         img = ans['t_hit'].numpy()
+        ids = ans["primitive_ids"].numpy()
 
-        # points out of ROI values == 0
+        # Change inf values to 0
         img[img == np.inf] = 0
         img = img.astype(np.float32)
 
         # ploting depth image
-        if show_just_first_img and visualize.lower() == 'depth':
-            plt.imshow(img, cmap='gray')
-            plt.title(name)
-            show_just_first_img = False
-            plt.show()
+        if first_iteration:
+            odd_rays = len(np.where(intersect%2 != 0)[0])
+            odd_rays_ratio = 100*odd_rays/len(np.where(intersect != 0)[0])
+            print(f"Number of rays with odd amount of intersections: {odd_rays}",
+                f"\nIntersection Ratio: {round(odd_rays_ratio, 4)}%")  
+            if odd_rays_ratio > 2:
+                print(f"Object {name.title()} has been rejected because of Intersection Ratio")
+                return None
+            
+            intersect[intersect%2 != 0] = 0
+            mask = intersect
+            itr = np.max(intersect)
+
+            if visualize.lower() == 'depth':
+                plt.imshow(img, cmap='gray')
+                plt.title(name)
+                plt.show()
+
+            first_iteration = False
+
+        img[mask == 0] = 0
+        ids[mask == 0] = np.max(ids)
 
         # exit when there is no mesh to intersect with
-        if np.max(intersect) == 0:
+        if np.max(img) == 0:
             break
 
         # subimage
         ROI = np.where(img != 0)
-        # find hit triangle
-        ids = ans["primitive_ids"].numpy()
+
         ROI_ids = ids[ids != np.max(ids)]
         ROI_ids_x = np.where(ids != np.max(ids))[1]
         ROI_ids_y = np.where(ids != np.max(ids))[0]
 
-        sub_dims = np.where(img != 0)
-        sub_img_x = (np.min(sub_dims[1]) + np.max(sub_dims[1])) // 2 - sub_img_width // 2
-        sub_img_y = (np.min(sub_dims[0]) + np.max(sub_dims[0])) // 2 - sub_img_height // 2
-        sub_img = np.array(img[sub_img_y:sub_img_y+sub_img_height, sub_img_x:sub_img_x+sub_img_width])
-        print('x: ', np.min(sub_dims[0]), np.max(sub_dims[0]), 'y: ', np.min(sub_dims[1]), np.max(sub_dims[1]))
-        plt.imshow(sub_img, cmap='gray')
-        plt.show()
+        # sub_dims = np.where(img != 0)
+        # sub_img_x = (np.min(sub_dims[1]) + np.max(sub_dims[1])) // 2 - sub_img_width // 2
+        # sub_img_y = (np.min(sub_dims[0]) + np.max(sub_dims[0])) // 2 - sub_img_height // 2
+        # sub_img = np.array(img[sub_img_y:sub_img_y+sub_img_height, sub_img_x:sub_img_x+sub_img_width])
+        # print('x: ', np.min(sub_dims[0]), np.max(sub_dims[0]), 'y: ', np.min(sub_dims[1]), np.max(sub_dims[1]))
+        # plt.imshow(sub_img, cmap='gray')
+        # plt.show()
+
         # normals = ans["primitive_normals"].numpy()
+        
+        #save depth img
+        surfaces[itr] = img
 
-        if len(surfaces.keys()) == 1:
+        if len(surfaces.keys()) >= 1:
             recent_image = surfaces[list(surfaces.keys())[-1]]
-            first_image = surfaces[list(surfaces.keys())[0]]
-            distance_diff = img - recent_image
-
+            # first_image = surfaces[list(surfaces.keys())[0]]
+            # distance_diff = img - recent_image
+        
             for x, y in zip(ROI_ids_x, ROI_ids_y):
-                samples = sampling(0, distance_diff[y][x], 5, linspace=True)
+                samples = sampling(50)
 
-                if distance_diff[y][x] == 0:
-                    continue
+                # if distance_diff[y][x] == 0:
+                    # continue
 
-                z = img[y][x] - samples
-                sdf_front = recent_image[y][x] - z
-                sdf_back = z - img[y][x]
-                sdf = np.maximum(sdf_front, sdf_back)
+                z = img[y][x] + samples
+                # sdf_front = recent_image[y][x] - z
+                # sdf_back = z - img[y][x]
+                # sdf = np.minimum(sdf_front, sdf_back)
+                sdf = z - img[y][x]
                 point_data = np.column_stack((np.full(sdf.shape, x),   
                                         np.full(sdf.shape, y),
                                         np.full(sdf.shape, z),
                                         sdf))
                 npz_array = np.concatenate((npz_array, point_data), axis=0)            
-
-        #save depth img
-        surfaces[np.max(intersect)] = img
 
         preprocessed_mesh.remove_triangles_by_index(list(ROI_ids))
 
@@ -292,6 +276,9 @@ def ray_casting(name, textured_mesh, visualize=''):
         
         # o3d.visualization.draw_geometries([preprocessed_mesh])
 
+        itr -= 1
+
+    print(surfaces.keys())
     npz_array = np.delete(npz_array, 0, axis=0)
     
     # depth image to point cloud
@@ -324,21 +311,29 @@ def ray_casting(name, textured_mesh, visualize=''):
 
 
 if __name__ == '__main__':
+    # np.set_printoptions(threshold=sys.maxsize)
+
     json_path = 'examples/splits/YCB_depth_image_train.json' # depth_image_train.json'
     data = load_data(json_path)
     # preprocessed_files = os.listdir("/home/piotr/Desktop/ProRoc/DeepSDF/ycb1/depth_to_pcd/")
-    for name, mesh in data.items():
-        if 'bottle' in name and '_x0' in name: #  ('mug' in name and not '_' in name) or ('bottle' in name and '_x0' in name):            
-            ray_casting(name, mesh, 'cloud')           
-            # source_filename = name.split('/')[-1] + '.pcd'
-            # if not source_filename in preprocessed_files:
-            #     ray_casting(name, mesh, 'cloud')
-            # else:
-            #     print(f"{source_filename} already exists.")
-        # if "1ffd7113492d375593202bf99dddc268_x0y0z0" in name:
-        #     visualize_pcd(filename=name)
+    # visualize_pcd()
 
-# DO POPRAWY
-# /home/piotr/Desktop/ProRoc/DeepSDF/ycb1/depth_to_pcd/29b6f9c7ae76847e763c517ce709a8cc_x0y0z0.pcd
-# /home/piotr/Desktop/ProRoc/DeepSDF/ycb1/depth_to_pcd/9cec36de93bb49d3f07ead639233915e_x0y0z0.pcd
-# /home/piotr/Desktop/ProRoc/DeepSDF/ycb1/depth_to_pcd/b95559b4f2146b6a823177feb9bf5114_x0y0z0.pcd
+    for name, mesh in data.items():
+        ray_casting(name, mesh, 'cloud')
+        # if 'bottle' in name and '_x0' in name: #  ('mug' in name and not '_' in name) or ('bottle' in name and '_x0' in name):   
+            # print(name)  
+            # radians = np.deg2rad(90)
+            # rotation_matrix = np.array([[1, 0, 0],
+            # [0, 0, 1],
+            # [0, 1, 0]])
+            # mesh.rotate(rotation_matrix, center=[0,0,0])
+            # origin = o3d.geometry.TriangleMesh.create_coordinate_frame(size=1)
+            # filename = name.split("/")[-1]
+            # filename = filename.split("_")[0]
+            # new_path = os.path.join('dataset_YCB_train/bottle_z', filename)
+            # if not os.path.exists(new_path):
+            #     os.mkdir(new_path)
+            #     o3d.visualization.draw_geometries([mesh, origin])       
+            #     # yes = input("Do you want to save it?[y/n]")
+            #     # if yes.lower() == 'y':
+            #     o3d.io.write_triangle_mesh(f"{os.path.join(new_path, 'model_normalized')}.obj", mesh)
