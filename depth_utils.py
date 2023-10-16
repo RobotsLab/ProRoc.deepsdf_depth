@@ -24,7 +24,7 @@ def magnitude(vector):
     return np.sqrt(sum(pow(element, 2) for element in vector))
 
 def visualize_pcd():
-    source_path = '/home/piotr/Desktop/ProRoc/DeepSDF/ycb1/objects-proc1'
+    source_path = '/home/piotr/Desktop/ProRoc/DeepSDF/ycb1/depth_to_pcd/'
     pcd_list = sorted([x for x in os.listdir(source_path) if x.endswith('.pcd')])
 
     for i, name in enumerate(pcd_list):

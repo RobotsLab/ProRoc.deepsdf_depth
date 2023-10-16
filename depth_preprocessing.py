@@ -5,6 +5,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import sys
 from depth_utils import *
+from depth_camera import Camera
 
 
 def load_data(json_path):
@@ -45,10 +46,10 @@ def mesh_preprocessing(input_mesh, test=False):
     x_dist = abs(np.min(mesh_vertices[:, 0]))
     y_dist = abs(np.min(mesh_vertices[:, 1]))
     z_dist = abs(np.min(mesh_vertices[:, 2]))
-    print(z_dist)
+    print("PREPROCESSING ABS MIN Z: ", z_dist)
     # Moving - for objects lying on side add min(mesh_vertices[:, 2])
     # mesh_vertices[:, 0] += 0.35
-    # mesh_vertices[:, 1] += 0.
+    # mesh_vertices[:, 1] += 0.4
     # mesh_vertices[:, 2] += 0.05 + z_dist
 
 
@@ -115,7 +116,12 @@ def sampling(quantity, max_value):
     short_samples = np.random.normal(mu, short_sigma, quantity)
     min_value = -max_value
     long_samples = long_samples[(min_value <= long_samples) & (long_samples <= max_value)]
-    result = np.append(long_samples, 0)
+    result = np.append(long_samples, short_samples)
+
+    # visualisation
+    # count, bins, ignored = plt.hist(long_samples, 20, density=True)
+    # plt.plot(bins, 1/(long_sigma * np.sqrt(2 * np.pi)) * np.exp( - (bins - mu)**2 / (2 * long_sigma**2) ), linewidth=2, color='r')
+    # plt.show()
 
     return result
 
@@ -136,10 +142,6 @@ def ray_casting(name, textured_mesh, test=False, visualize='', alpha=0):
                                        [0, 0, 1]])    
 
     # Rotation angles in radians
-    # roll = np.deg2rad(0)  # Rotation around X-axis
-    # pitch = np.deg2rad(-240)  # Rotation around Y-axis
-    # yaw = np.deg2rad(270)  # Rotation around Z-axis
-
     rotation_step = alpha
     roll = np.deg2rad(-rotation_step)  # Rotation around X-axis
     pitch = np.deg2rad(-240)  # Rotation around Y-axis
@@ -150,28 +152,14 @@ def ray_casting(name, textured_mesh, test=False, visualize='', alpha=0):
     ty = -.03
     tz = 1.5
 
-    # Create rotation matrices for each axis
-    rotation_x = np.array([[1, 0, 0],
-                        [0, np.cos(roll), -np.sin(roll)],
-                        [0, np.sin(roll), np.cos(roll)]])
-
-    rotation_y = np.array([[np.cos(pitch), 0, np.sin(pitch)],
-                        [0, 1, 0],
-                        [-np.sin(pitch), 0, np.cos(pitch)]])
-
-    rotation_z = np.array([[np.cos(yaw), -np.sin(yaw), 0],
-                        [np.sin(yaw), np.cos(yaw), 0],
-                        [0, 0, 1]])
-
-    # Combine rotation matrices
-    rotation_matrix = np.dot(np.dot(rotation_z, rotation_y), rotation_x)
-
-    # Create the extrinsic matrix
-    extrinsic_matrix = np.eye(4)
-    extrinsic_matrix[:3, :3] = rotation_matrix
-    extrinsic_matrix[:3, 3] = [tx, ty, tz]
+    camera = Camera(Fx=Fx_depth, Fy=Fy_depth, Cx=Cx_depth, Cy=Cy_depth, width=width, height=height, intrinsic_matrix=intrinsic_matrix)
+    camera.rotate(roll=roll, pitch=pitch, yaw=yaw)
+    camera.translate(tx=tx, ty=ty, tz=tz)
     
     # END OF CAMERA SETTINGS
+
+    # file_path = "/home/piotr/Desktop/ProRoc/DeepSDF/Test_PPRAI.v2/ycb_proc1/data-item-1-1/models/model_normalized.obj"
+    # textured_mesh = o3d.io.read_triangle_mesh(file_path)
 
     preprocessed_mesh = mesh_preprocessing(textured_mesh, test=test)
     # duplicated_triangle_idx = remove_duplicated_mesh(preprocessed_mesh)
@@ -182,27 +170,16 @@ def ray_casting(name, textured_mesh, test=False, visualize='', alpha=0):
 
     scene.add_triangles(mesh)
 
+    mesh_center = np.mean(np.asarray(preprocessed_mesh.vertices), axis=0)
+    print("MESH CENTER: ", mesh_center)
     npz_array = np.zeros((1,4))
     depth_images = {}
     itr = 0
-
-    sub_img_width, sub_img_height = 350, 350
-    sub_img_x, sub_img_y = 0, 0
-    last_distance_diff = 0.
+    sub_size = 200
 
     # Stacking depth images
     while True:
-        rays = o3d.t.geometry.RaycastingScene.create_rays_pinhole(
-            intrinsic_matrix=intrinsic_matrix,
-            extrinsic_matrix=extrinsic_matrix,
-            width_px=width,
-            height_px=height
-        )
-
-        # Matrix (height, width) of intersections
-        intersect = scene.count_intersections(
-            rays
-        ).numpy()
+        rays = camera.raycasting()
 
         # Depth image.
         ans = scene.cast_rays(rays)
@@ -217,9 +194,9 @@ def ray_casting(name, textured_mesh, test=False, visualize='', alpha=0):
 
         if visualize.lower() == 'depth':
             plt.imshow(img, cmap='gray')
-            plt.title(name)
+            plt.title('Pionhole camera image')
             plt.show()
-        
+            exit(888)
         #save depth img
         depth_images[itr] = img
 
@@ -239,14 +216,23 @@ def ray_casting(name, textured_mesh, test=False, visualize='', alpha=0):
         itr += 1
 
     keys = list(depth_images.keys())
-    print(keys)
+    print("DICT kEYS: ", keys)
+
     #Depth images processing
     ROI = np.where(depth_images[keys[0]] != 0)
     ROI_y = ROI[0]
     ROI_x = ROI[1]
+    y_center = (np.max(ROI_y) + np.min(ROI_y)) // 2
+    x_center = (np.max(ROI_x) + np.min(ROI_x)) // 2
+    print("x, y center:", x_center, y_center)
+
+    y_start = y_center - sub_size/2
+    x_start = x_center - sub_size/2
+
     # print(len(ROI_y))
     max_dist = 0
     min_dist = 1
+    mean_z = 0
     for x, y in zip(ROI_x, ROI_y):
         depth_values = []
         for depth_image in depth_images.values():
@@ -254,16 +240,24 @@ def ray_casting(name, textured_mesh, test=False, visualize='', alpha=0):
         last_surface_idx = np.max(np.nonzero(depth_values))
         
         if test:
-            distance=1e-2
+            max_z = depth_values[0] + 1.5e-2  # np.max(depth_images[keys[0]])
+            min_z = max_z - 1
+            distance = depth_values[0]
+            if distance == 0:
+                continue
+
             #Sampling front
-            samples_front = sampling(1, distance/2)
+            samples_front = sampling(16, 1)
             z = depth_values[0] + samples_front
+            z = z[(z <= max_z) & (z >= min_z)]
             sdf = depth_values[0] - z
             point_data = np.column_stack((np.full(sdf.shape, x),   
                                         np.full(sdf.shape, y),
                                         np.full(sdf.shape, z),
                                         sdf))
-            npz_array = np.concatenate((npz_array, point_data), axis=0)
+            npz_array = np.concatenate((npz_array, point_data), axis=0) 
+            mean_z += np.mean(depth_values[0])
+
         else:
             # if last_surface_idx%2 == 0 or last_surface_idx%2 == 1:
             last_surface_dist = depth_values[last_surface_idx]
@@ -275,7 +269,8 @@ def ray_casting(name, textured_mesh, test=False, visualize='', alpha=0):
             # continue
 
             #Sampling front
-            samples_front = sampling(1, distance/2)
+            samples_front = sampling(16, 1-distance/2)
+            samples_front = samples_front[samples_front < distance/2]
             z = depth_values[0] + samples_front
             sdf = depth_values[0] - z
             point_data = np.column_stack((np.full(sdf.shape, x),   
@@ -285,7 +280,8 @@ def ray_casting(name, textured_mesh, test=False, visualize='', alpha=0):
             npz_array = np.concatenate((npz_array, point_data), axis=0) 
 
             #Sampling back
-            samples_back = sampling(1, distance/2)
+            samples_back = sampling(16, 1-distance/2)
+            samples_back = samples_back[samples_back > -distance/2]
             z = last_surface_dist + samples_back
             sdf = z - last_surface_dist
             point_data = np.column_stack((np.full(sdf.shape, x),   
@@ -293,6 +289,145 @@ def ray_casting(name, textured_mesh, test=False, visualize='', alpha=0):
                                         np.full(sdf.shape, z),
                                         sdf))
             npz_array = np.concatenate((npz_array, point_data), axis=0) 
+
+            mean_z += (np.mean(last_surface_dist) + np.mean(depth_values[0])) / 2
+    
+    mean_z /= len(list(zip(ROI_x, ROI_y)))
+    for i in range(sub_size):
+        x = x_start
+        for j in range(sub_size):
+            abc = (x, y_start)
+            defg = list(zip(ROI_x, ROI_y))
+            if not abc in defg:
+                z = np.linspace(mean_z - 1, mean_z + 1, num=32)
+                sdf = 1
+                point_data = np.column_stack((np.full(z.shape, x),   
+                                            np.full(z.shape, y_start),
+                                            z,
+                                            np.full(z.shape, sdf)))
+                npz_array = np.concatenate((npz_array, point_data), axis=0) 
+            x += 1
+        print(y_start)
+        y_start += 1
+    
+    print("MEAN Z, MIN DIST, MAX DIST: :", mean_z, min_dist, max_dist)
+    # print(depth_images.keys())
+    npz_array = np.delete(npz_array, 0, axis=0)
+    
+    # depth image to point cloud
+    z = npz_array[:, 2]
+    # print('x', np.min(npz_array[:, 0]), np.max(npz_array[:, 0]))
+    # print('y', np.min(npz_array[:, 1]), np.max(npz_array[:, 1]))
+    # print('z', np.min(npz_array[:, 2]), np.max(npz_array[:, 2]))
+
+    x = (Cx_depth - npz_array[:, 0]) * z / Fx_depth  # y on image is x in real world
+    y = (Cy_depth - npz_array[:, 1]) * z / Fy_depth  # x on image is y in real world
+
+    # # NORMALIZATION
+    # sub_img_x = (np.min(npz_array[:, 0]) + np.max(npz_array[:, 0])) // 2
+    # half_width = sub_img_width // 2
+    # min_x = np.min((sub_img_x - half_width - Cx_depth) * z / Fx_depth)
+    # max_x = np.max((sub_img_x + half_width - Cx_depth) * z / Fx_depth)
+
+    # sub_img_y = (np.min(npz_array[:, 1]) + np.max(npz_array[:, 1])) // 2
+    # half_height = sub_img_height / 2
+    # min_y = np.min((sub_img_y - half_height - Cy_depth) * z / Fy_depth)
+    # max_y = np.max((sub_img_y + half_height - Cy_depth) * z / Fy_depth)
+
+    # y_norm = y[(y > min_y) & (y < max_y)]
+    # x_norm = x[(x > min_x) & (x < max_x)]
+
+    # z_norm = (z - 1) / (2 - 1)
+
+    npz_result = np.column_stack([x, y, z, npz_array[:, 3]])
+    dist = np.linalg.norm(npz_array[0, :3] - npz_array[1, :3])
+    print("LINALG DIST, 0 IDX Z, 1 IDX Z: ", dist, abs(npz_array[0, 3] - npz_array[1, 3]))
+    print("CENTER: ", np.mean(npz_result[:, :3], axis=0))
+    npz_result[:, :3] -= np.mean(npz_result[:, :3], axis=0)
+    print("CENTER AFTER SUBTRACTION: ", np.mean(npz_result[:, :3], axis=0))
+    
+    pos_data = npz_result[npz_result[:, 3] >= 0]
+    neg_data = npz_result[npz_result[:, 3] <= 0]
+    print("POS DATA SHAPE, NEG DATA SHAPE: ", pos_data.shape, neg_data.shape)
+
+    npz_data = {"pos": pos_data, "neg": neg_data}
+
+    if test:
+        destination_path = f"data_YCB/SdfSamples/dataset_YCB_test/{name.split('/')[0]}"
+        if not os.path.exists(destination_path):
+            os.makedirs(destination_path)
+        np.savez(os.path.join(destination_path, name.split('/')[-1]+".npz"), **npz_data)
+        print(f"SAVED NPZ: {os.path.join(destination_path, name.split('/')[-1]+'.npz')}")
+    else:
+        destination_path = f"data_YCB/SdfSamples/dataset_YCB_train/{name.split('/')[0]}"
+        if not os.path.exists(destination_path):
+            os.makedirs(destination_path)
+        np.savez(os.path.join(destination_path, name.split('/')[-1]+".npz"), **npz_data)
+        print(f"SAVED NPZ: {os.path.join(destination_path, name.split('/')[-1]+'.npz')}")
+
+    pcd = np.column_stack((pos_data[:, 0], pos_data[:, 1], pos_data[:, 2]))
+    pcd_o3d = o3d.geometry.PointCloud()  # create point cloud object
+    pcd_o3d.points = o3d.utility.Vector3dVector(pcd)  # set pcd_np as the point cloud points
+
+    # Visualize:
+    if visualize.lower() == 'cloud':
+        origin = o3d.geometry.TriangleMesh.create_coordinate_frame(size=0.1)
+        o3d.visualization.draw_geometries([pcd_o3d, origin])
+
+    destination_filename = f"/home/piotr/Desktop/ProRoc/DeepSDF/magisterka/trening/{name.split('/')[-1]}_train.pcd"
+    dest2 = f"dataset_YCB_train/depth_norm/depth_{name.split('/')[-1]}.npz"
+    # o3d.io.write_point_cloud(destination_filename, pcd_o3d)
+    print(f"SAVED POINT CLOUD: {destination_filename}")
+    
+    # exit(777)
+
+if __name__ == '__main__':
+    # np.set_printoptions(threshold=sys.maxsize)
+
+    json_path = 'examples/splits/magisterka_depth_test.json'
+    data = load_data(json_path)
+    good = []
+    for name, mesh in data.items():
+        # angles = [0, 90, 180, 270]
+        # for angle in angles:
+        ray_casting(name, mesh, True, 'cloud')
+        
+
+    #     print(name)
+    #     pcd = o3d.io.read_point_cloud(
+    #         os.path.join("/home/piotr/Desktop/ProRoc/DeepSDF/magisterka/trening/", name.split('/')[-1]+"_train.pcd")
+    #         )
+    #     o3d.visualization.draw_geometries([pcd])
+    #     decision = input("Good? [y/n]: ")
+    #     if decision.lower() == 'y':
+    #         good.append(name)
+
+    # print(*good)
+
+
+# do testu depth/9cec36de93bb49d3f07ead639233915e, depth/883ace957dbb32e7846564a8a219239b,
+#  depth/62451f0ab130709ef7480cb1ee830fb9, depth/29b6f9c7ae76847e763c517ce709a8cc
+
+# do treningu depth/1ef68777bfdb7d6ba7a07ee616e34cd7 depth/21239b0cafa13526cafb7c62b057a234 
+# depth/216adefa94f25d7968a3710932407607 depth/22249179e88b0502846564a8a219239b depth/24feb92770933b1663995fb119e59971 
+# depth/2618100a5821a4d847df6165146d5bbd depth/26a8d94392d86aa0940806ade53ef2f depth/26e6f23bf6baea05fe5c8ffd0f5eba47 
+# depth/2722bec1947151b86e22e2d2f64c8cef depth/27b9f07da9217c89ef026123226f5519 depth/2976131e4621231655bf395569b6fd5 
+# depth/29cad22b0fc6c9985f16c469ffeb982e depth/2bbd2b37776088354e23e9314af9ae57 depth/917fd3e68de79bf69ece21a0b0786a69 
+# depth/b95559b4f2146b6a823177feb9bf5114
+
+
+
+
+
+
+
+
+
+
+
+
+
+
         # else:
         #     duplicated_triangle = False
         #     for i in range(last_surface_idx+1):
@@ -329,83 +464,3 @@ def ray_casting(name, textured_mesh, test=False, visualize='', alpha=0):
         #                                     sdf))
         #         npz_array = np.concatenate((npz_array, point_data), axis=0) 
     # exit(777)
-    print(min_dist, max_dist)
-    # print(depth_images.keys())
-    npz_array = np.delete(npz_array, 0, axis=0)
-    
-    # depth image to point cloud
-    z = npz_array[:, 2]
-    # print('x', np.min(npz_array[:, 0]), np.max(npz_array[:, 0]))
-    # print('y', np.min(npz_array[:, 1]), np.max(npz_array[:, 1]))
-    # print('z', np.min(npz_array[:, 2]), np.max(npz_array[:, 2]))
-
-    x = (Cx_depth - npz_array[:, 0]) * z / Fx_depth  # y on image is x in real world
-    y = (Cy_depth - npz_array[:, 1]) * z / Fy_depth  # x on image is y in real world
-
-    # # NORMALIZATION
-    # sub_img_x = (np.min(npz_array[:, 0]) + np.max(npz_array[:, 0])) // 2
-    # half_width = sub_img_width // 2
-    # min_x = np.min((sub_img_x - half_width - Cx_depth) * z / Fx_depth)
-    # max_x = np.max((sub_img_x + half_width - Cx_depth) * z / Fx_depth)
-
-    # sub_img_y = (np.min(npz_array[:, 1]) + np.max(npz_array[:, 1])) // 2
-    # half_height = sub_img_height / 2
-    # min_y = np.min((sub_img_y - half_height - Cy_depth) * z / Fy_depth)
-    # max_y = np.max((sub_img_y + half_height - Cy_depth) * z / Fy_depth)
-
-    # y_norm = y[(y > min_y) & (y < max_y)]
-    # x_norm = x[(x > min_x) & (x < max_x)]
-
-    # z_norm = (z - 1) / (2 - 1)
-
-    npz_result = np.column_stack([x, y, z, npz_array[:, 3]])
-    dist = np.linalg.norm(npz_array[0, :3] - npz_array[1, :3])
-    print(dist, npz_array[0, 3], npz_array[1, 3])
-    print(np.mean(npz_result[:, :3], axis=0))
-    npz_result[:, :3] -= np.mean(npz_result[:, :3], axis=0)
-    print(np.mean(npz_result[:, :3], axis=0))
-
-    pos_data = npz_result[npz_result[:, 3] > 0]
-    neg_data = npz_result[npz_result[:, 3] < 0]
-    print(pos_data.shape, neg_data.shape)
-    npz_data = {"pos": pos_data, "neg": neg_data}
-    # if test:
-        # np.savez(f"data_YCB/SdfSamples/dataset_YCB_test/ycb_z/{name.split('/')[-1]}.npz", **npz_data)
-    # else:
-        # np.savez(f"data_YCB/SdfSamples/dataset_YCB_train/depth/{name.split('/')[-1]}_{rotation_step}.npz", **npz_data)
-
-
-    pcd = np.column_stack((pos_data[:, 0], pos_data[:, 1], pos_data[:, 2]))
-    pcd_o3d = o3d.geometry.PointCloud()  # create point cloud object
-    pcd_o3d.points = o3d.utility.Vector3dVector(pcd)  # set pcd_np as the point cloud points
-
-    # Visualize:
-    if visualize.lower() == 'cloud':
-        # radians = -np.pi/2
-        # rotation_matrix = np.array([[np.cos(radians), -np.sin(radians), 0],
-        #         [np.sin(radians), np.cos(radians), 0],
-        #         [0, 0, 1]])
-        # textured_mesh.rotate(rotation_matrix, center=[0,0,0])
-        origin = o3d.geometry.TriangleMesh.create_coordinate_frame(size=0.1)
-        o3d.visualization.draw_geometries([pcd_o3d, origin])
-
-    destination_filename = f"/home/piotr/Desktop/ProRoc/DeepSDF/ycb1/depth_to_pcd/{name.split('/')[-1]}.pcd"
-    dest2 = f"dataset_YCB_train/depth_norm/depth_{name.split('/')[-1]}.npz"
-    # o3d.io.write_point_cloud(destination_filename, pcd_o3d)
-    # print(f"SAVED POINT CLOUD: {destination_filename}")
-    
-    # exit(777)
-
-
-if __name__ == '__main__':
-    # np.set_printoptions(threshold=sys.maxsize)
-
-    json_path = 'examples/splits/YCB_depth_train.json'
-    data = load_data(json_path)
-
-    for name, mesh in data.items():
-        angles = [0, 90, 180, 270]
-        for angle in angles:
-            ray_casting(name, mesh, False, 'cloud', alpha=angle)
-
-
