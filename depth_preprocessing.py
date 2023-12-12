@@ -7,6 +7,47 @@ import sys
 from depth_utils import *
 from depth_camera import Camera
 
+def save_data_for_sdf(pcd):
+    pcd_o3d = o3d.geometry.PointCloud()  # create point cloud object
+    pcd_o3d.points = o3d.utility.Vector3dVector(pcd)  # set pcd_np as the point cloud points
+    roll = np.deg2rad(120)
+    rotation_x = np.array([[1, 0, 0],
+                    [0, np.cos(roll), -np.sin(roll)],
+                    [0, np.sin(roll), np.cos(roll)]])
+    pcd_o3d.rotate(rotation_x)
+
+    pcd_points = np.asarray(pcd_o3d.points)
+    pcd = scale_and_center(pcd_points, 1)
+
+    pcd_o3d.points = o3d.utility.Vector3dVector(pcd)  # set pcd_np as the point cloud points
+
+    return pcd_o3d
+
+def pcd_to_obj(pcd):
+    # pcd.estimate_normals()
+    pcd = o3d.geometry.PointCloud(pcd)
+    pcd.normals = o3d.utility.Vector3dVector(pcd.points)
+    distances = pcd.compute_nearest_neighbor_distance()
+    avg_dist = np.mean(distances)
+    radius = 3 * avg_dist
+    bpa_mesh = o3d.geometry.TriangleMesh.create_from_point_cloud_ball_pivoting(pcd,o3d.utility.DoubleVector([radius, radius * 2]))
+    
+    return bpa_mesh
+
+def scale_and_center(points, scale_factor=False):
+    points[:, 0] -= np.mean(points[:, 0])
+    points[:, 1] -= np.mean(points[:, 1])
+    points[:, 2] -= np.mean(points[:, 2])
+
+    max_distance = 0
+    for point in points:
+        max_distance = max(max_distance, np.linalg.norm(point))
+
+    if scale_factor:
+        scale_multiplier = max_distance * scale_factor
+        points /= scale_multiplier
+
+    return points
 
 def load_data(json_path):
     '''Loading filenames with name of category and .npz extension from .json file.
@@ -175,7 +216,7 @@ def ray_casting(name, textured_mesh, test=False, visualize='', alpha=0):
     npz_array = np.zeros((1,4))
     depth_images = {}
     itr = 0
-    sub_size = 200
+    sub_size = 256
 
     # Stacking depth images
     while True:
@@ -196,7 +237,7 @@ def ray_casting(name, textured_mesh, test=False, visualize='', alpha=0):
             plt.imshow(img, cmap='gray')
             plt.title('Pionhole camera image')
             plt.show()
-            exit(888)
+            # exit(888)
         #save depth img
         depth_images[itr] = img
 
@@ -247,7 +288,7 @@ def ray_casting(name, textured_mesh, test=False, visualize='', alpha=0):
                 continue
 
             #Sampling front
-            samples_front = sampling(16, 1)
+            samples_front = 0  # sampling(16, 1)
             z = depth_values[0] + samples_front
             z = z[(z <= max_z) & (z >= min_z)]
             sdf = depth_values[0] - z
@@ -352,33 +393,41 @@ def ray_casting(name, textured_mesh, test=False, visualize='', alpha=0):
 
     npz_data = {"pos": pos_data, "neg": neg_data}
 
-    if test:
-        destination_path = f"data_YCB/SdfSamples/dataset_YCB_test/{name.split('/')[0]}"
-        if not os.path.exists(destination_path):
-            os.makedirs(destination_path)
-        np.savez(os.path.join(destination_path, name.split('/')[-1]+".npz"), **npz_data)
-        print(f"SAVED NPZ: {os.path.join(destination_path, name.split('/')[-1]+'.npz')}")
-    else:
-        destination_path = f"data_YCB/SdfSamples/dataset_YCB_train/{name.split('/')[0]}"
-        if not os.path.exists(destination_path):
-            os.makedirs(destination_path)
-        np.savez(os.path.join(destination_path, name.split('/')[-1]+".npz"), **npz_data)
-        print(f"SAVED NPZ: {os.path.join(destination_path, name.split('/')[-1]+'.npz')}")
+    # if test:
+    #     destination_path = f"data_YCB/SdfSamples/dataset_YCB_test/{name.split('/')[0]}"
+    #     if not os.path.exists(destination_path):
+    #         os.makedirs(destination_path)
+    #     np.savez(os.path.join(destination_path, name.split('/')[-1]+".npz"), **npz_data)
+    #     print(f"SAVED NPZ: {os.path.join(destination_path, name.split('/')[-1]+'.npz')}")
+    # else:
+    #     destination_path = f"data_YCB/SdfSamples/dataset_YCB_train/{name.split('/')[0]}"
+    #     if not os.path.exists(destination_path):
+    #         os.makedirs(destination_path)
+    #     np.savez(os.path.join(destination_path, name.split('/')[-1]+".npz"), **npz_data)
+    #     print(f"SAVED NPZ: {os.path.join(destination_path, name.split('/')[-1]+'.npz')}")
 
     pcd = np.column_stack((pos_data[:, 0], pos_data[:, 1], pos_data[:, 2]))
     pcd_o3d = o3d.geometry.PointCloud()  # create point cloud object
     pcd_o3d.points = o3d.utility.Vector3dVector(pcd)  # set pcd_np as the point cloud points
 
+    pcd_o3d = save_data_for_sdf(pcd)
+    bpa_mesh = pcd_to_obj(pcd_o3d)
+    destination_path = f"dataset_YCB_test/magisterka_sdf/{name.split('/')[-1]}_new/models"
+    print(destination_path)
+    if not os.path.exists(destination_path):
+        os.makedirs(destination_path)
+    o3d.io.write_triangle_mesh(os.path.join(destination_path, "model_normalized.obj"), bpa_mesh, write_vertex_normals=False, write_vertex_colors=False)
+
+
     # Visualize:
     if visualize.lower() == 'cloud':
         origin = o3d.geometry.TriangleMesh.create_coordinate_frame(size=0.1)
-        o3d.visualization.draw_geometries([pcd_o3d, origin])
+        o3d.visualization.draw_geometries([pcd_o3d, bpa_mesh, origin])
 
     destination_filename = f"/home/piotr/Desktop/ProRoc/DeepSDF/magisterka/trening/{name.split('/')[-1]}_train.pcd"
     dest2 = f"dataset_YCB_train/depth_norm/depth_{name.split('/')[-1]}.npz"
     # o3d.io.write_point_cloud(destination_filename, pcd_o3d)
     print(f"SAVED POINT CLOUD: {destination_filename}")
-    
     # exit(777)
 
 if __name__ == '__main__':
