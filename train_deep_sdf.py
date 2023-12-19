@@ -458,7 +458,7 @@ def main_function(experiment_directory, continue_from, batch_split):
         decoder.train()
 
         adjust_learning_rate(lr_schedules, optimizer_all, epoch)
-        # print('----------------------sdf_loader', type(sdf_loader), sdf_loader)
+        print('----------------------sdf_loader', type(sdf_loader), sdf_loader)
         for sdf_data, indices in sdf_loader:
             # print('----------------------', type(indices))
             torch.cuda.empty_cache()
@@ -491,9 +491,11 @@ def main_function(experiment_directory, continue_from, batch_split):
             for i in range(batch_split):
 
                 batch_vecs = lat_vecs(indices[i])
+                # print(xyz[0].dtype)
 
                 input = torch.cat([batch_vecs, xyz[i]], dim=1)
-
+                input = input.to(torch.float32)
+                # print(input.dtype)
                 # NN optimization
                 pred_sdf = decoder(input)
 

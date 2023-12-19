@@ -69,7 +69,7 @@ def reconstruct(
 
         inputs = torch.cat([latent_inputs, xyz], 1).cuda()
         # print(type(inputs), inputs.shape)
-
+        inputs = inputs.to(torch.float32)
         pred_sdf = decoder(inputs)
 
         # TODO: why is this needed?
@@ -281,21 +281,21 @@ if __name__ == "__main__":
 
             if not os.path.exists(os.path.dirname(mesh_filename)):
                 os.makedirs(os.path.dirname(mesh_filename))
-            try:
-                if not save_latvec_only:
-                    start = time.time()
-                    with torch.no_grad():
-                        deep_sdf.mesh.create_mesh(
-                            decoder, latent, mesh_filename, N=256, max_batch=int(2 ** 18)
-                        )
-                    logging.debug("total time: {}".format(time.time() - start))
-                    print("total time: {}".format(time.time() - start))
+            # try:
+            if not save_latvec_only:
+                start = time.time()
+                with torch.no_grad():
+                    deep_sdf.mesh.create_mesh(
+                        decoder, latent, mesh_filename, N=256, max_batch=int(2 ** 18)
+                    )
+                logging.debug("total time: {}".format(time.time() - start))
+                print("total time: {}".format(time.time() - start))
 
-                if not os.path.exists(os.path.dirname(latent_filename)):
-                    os.makedirs(os.path.dirname(latent_filename))
+            if not os.path.exists(os.path.dirname(latent_filename)):
+                os.makedirs(os.path.dirname(latent_filename))
 
-                torch.save(latent.unsqueeze(0), latent_filename)
-            except:
-                print(f"Unable to reconstruct {latent_filename}")
+            torch.save(latent.unsqueeze(0), latent_filename)
+            # except:
+                # print(f"Unable to reconstruct {latent_filename}")
 
     print(reconstruct_time/len(npz_filenames))

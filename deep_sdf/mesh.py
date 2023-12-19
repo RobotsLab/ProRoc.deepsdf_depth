@@ -7,6 +7,7 @@ import plyfile
 from skimage import measure
 import time
 import torch
+import open3d as o3d
 
 import deep_sdf.utils
 
@@ -24,19 +25,10 @@ def create_mesh(
     voxel_size = 2.0 / (N - 1)
 
     overall_index = torch.arange(0, N ** 3, 1, out=torch.LongTensor())
-    samples = torch.zeros(N ** 3, 4)
 
-    # transform first 3 columns
-    # to be the x, y, z index
-    samples[:, 2] = overall_index % N
-    samples[:, 1] = (overall_index.long() / N) % N
-    samples[:, 0] = ((overall_index.long() / N) / N) % N
-
-    # transform first 3 columns
-    # to be the x, y, z coordinate
-    samples[:, 0] = (samples[:, 0] * voxel_size) + voxel_origin[2]
-    samples[:, 1] = (samples[:, 1] * voxel_size) + voxel_origin[1]
-    samples[:, 2] = (samples[:, 2] * voxel_size) + voxel_origin[0]
+    samples = prepare_samples()
+    # samples = original_sampling(N, overall_index, voxel_size, voxel_origin)
+    print(samples, samples.shape, type(samples))
 
     num_samples = N ** 3
 
@@ -56,6 +48,13 @@ def create_mesh(
         head += max_batch
 
     sdf_values = samples[:, 3]
+    # tutaj wywołać funkcję
+    save_sdf_samples(
+        samples=samples,
+        filename=filename
+    )
+
+
     sdf_values = sdf_values.reshape(N, N, N)
 
     end = time.time()
@@ -90,7 +89,6 @@ def convert_sdf_samples_to_ply(
     This function adapted from: https://github.com/RobotLocomotion/spartan
     """
     start_time = time.time()
-
     numpy_3d_sdf_tensor = pytorch_3d_sdf_tensor.numpy()
     # result = measure._marching_cubes_lewiner(...)
     verts, faces, normals, values = measure.marching_cubes(
@@ -107,6 +105,7 @@ def convert_sdf_samples_to_ply(
     # apply additional offset and scale
     if scale is not None:
         mesh_points = mesh_points / scale
+
     if offset is not None:
         mesh_points = mesh_points - offset
 
@@ -137,3 +136,43 @@ def convert_sdf_samples_to_ply(
             time.time() - start_time
         )
     )
+
+def save_sdf_samples(
+        samples, 
+        filename
+):
+    samples_numpy = np.asarray(samples)
+    data = {"pos": samples_numpy[samples_numpy[:, 3] > 0], "neg" : samples_numpy[samples_numpy[:, 3] < 0]}
+    np.savez(filename + ".npz", **data)
+    print(f"NPZ file saved in {filename}")
+
+def prepare_samples():
+    dict_data = np.load("querry_point_cloud.npz")
+    data = dict_data[dict_data.files[0]]
+    sdf_column = np.zeros((data.shape[0], 1))
+    samples = np.append(data, sdf_column, axis=1)
+    t_samples = torch.from_numpy(samples)
+
+    t_samples = t_samples.to(torch.float32)
+
+    return t_samples
+
+def original_sampling(N, overall_index, voxel_size, voxel_origin):
+
+    samples = torch.zeros(N ** 3, 4)
+
+    # transform first 3 columns
+    # to be the x, y, z index
+    samples[:, 2] = overall_index % N
+    samples[:, 1] = (overall_index.long() / N) % N
+    samples[:, 0] = ((overall_index.long() / N) / N) % N
+
+    # transform first 3 columns
+    # to be the x, y, z coordinate
+    samples[:, 0] = (samples[:, 0] * voxel_size) + voxel_origin[2]
+    samples[:, 1] = (samples[:, 1] * voxel_size) + voxel_origin[1]
+    samples[:, 2] = (samples[:, 2] * voxel_size) + voxel_origin[0]
+
+    return samples
+
+    

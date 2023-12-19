@@ -91,42 +91,34 @@ if __name__ == "__main__":
         "--data_dir",
         "-d",
         dest="data_dir",
-        # required=True,
-        required=False,  # new
-        default="data_PPRAI", # new
+        required=True,
         help="The directory which holds all preprocessed data.",
     )
     arg_parser.add_argument(
         "--source",
         "-s",
         dest="source_dir",
-        # required=True,
-        required=False,  # new
-        default="Dataset_PPRAI/",  # new
+        required=True,
         help="The directory which holds the data to preprocess and append.",
     )
     arg_parser.add_argument(
         "--name",
         "-n",
         dest="source_name",
-        # default=None,
-        default="Dataset_PPRAI",  # new
+        default=None,
         help="The name to use for the data source. If unspecified, it defaults to the "
         + "directory name.",
     )
     arg_parser.add_argument(
         "--split",
         dest="split_filename",
-        # required=True,
-        required=False,  # new
-        default="examples/splits/PPRAI_train.json",  # new
+        required=True,
         help="A split filename defining the shapes to be processed.",
     )
     arg_parser.add_argument(
         "--skip",
         dest="skip",
-        # default=False,
-        default=True,  # new
+        default=False,
         action="store_true",
         help="If set, previously-processed shapes will be skipped",
     )

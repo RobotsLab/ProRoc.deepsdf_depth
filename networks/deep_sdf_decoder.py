@@ -85,7 +85,7 @@ class Decoder(nn.Module):
             lin = getattr(self, "lin" + str(layer))
             if layer in self.latent_in:
                 x = torch.cat([x, input], 1)
-            elif layer != 0 and self.xyz_in_all:
+            elif layer != 0 and self.xyz_in_all:  # tutaj zmienić na layer%4 == 0 i zwiększyć ilość warstw do 12
                 x = torch.cat([x, xyz], 1)
             x = lin(x)
             # last layer Tanh

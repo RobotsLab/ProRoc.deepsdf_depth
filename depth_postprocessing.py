@@ -139,8 +139,8 @@ def depth_to_pcd(depth_image, Cx, Cy, Fx, Fy):
     return mesh, pcd_o3d
 
 def scale_and_center(points, scale_factor=False):
-    points[:, 0] += np.mean(points[:, 0])
-    points[:, 1] += np.mean(points[:, 1])
+    points[:, 0] -= np.mean(points[:, 0])
+    points[:, 1] -= np.mean(points[:, 1]) - abs(np.min(points[:, 1]))/2
     points[:, 2] += abs(np.min(points[:, 2]))
 
     max_distance = 0
@@ -164,11 +164,40 @@ def pcd_to_obj(pcd):
     
     return bpa_mesh
 
+def comparison_prepare(filename):
+    mesh = o3d.io.read_triangle_mesh(filename)
+    origin = o3d.geometry.TriangleMesh.create_coordinate_frame(size=1)
+    vertices = np.asarray(mesh.vertices)
+    new_vertices = scale_and_center(vertices, 1)
+    mesh.vertices = o3d.utility.Vector3dVector(new_vertices)  # set pcd_np as the point cloud points
+
+    o3d.visualization.draw_geometries([mesh, origin])
+
+    return mesh
 
 def main():
-    source_path = "examples/depth/Reconstructions/1500/Meshes/dataset_YCB_test/magisterka_depth"
+    source_path = "examples/depth/Reconstructions/1500/Meshes/dataset_YCB_test/magisterka_depth/"
+    # source_path = "dataset_YCB_test/magisterka_sdf/"
     filenames = os.listdir(source_path)
+    print(filenames)
     for filename in filenames:
+
+        # To jest do przygotwania danych wyjściowych z DeepSDF fo porównania
+        # if filename:
+        #     prepared_mesh = comparison_prepare(os.path.join(source_path, filename, "models/model_normalized.obj"))
+        #     destination_filename = filename.split(".")[0]
+        #     print(destination_filename)
+        #     o3d.io.write_triangle_mesh(os.path.join(source_path, destination_filename + "scaled_gt.ply"), prepared_mesh, write_vertex_normals=False, write_vertex_colors=False)
+        # continue
+
+        # if filename.endswith("_new"):
+        #     prepared_mesh = comparison_prepare(os.path.join(source_path, filename, "models/model_normalized.obj"))
+        #     destination_filename = filename.split(".")[0]
+        #     print(destination_filename)
+        #     o3d.io.write_triangle_mesh(os.path.join(source_path, destination_filename + "scaled_input.ply"), prepared_mesh, write_vertex_normals=False, write_vertex_colors=False)
+        # else:
+        #     continue
+
         source_file = os.path.join(source_path, filename)
         if not filename.endswith(".npz"):
             continue

@@ -296,7 +296,7 @@ def ray_casting(name, textured_mesh, test=False, visualize='', alpha=0):
                                         np.full(sdf.shape, y),
                                         np.full(sdf.shape, z),
                                         sdf))
-            npz_array = np.concatenate((npz_array, point_data), axis=0) 
+            # npz_array = np.concatenate((npz_array, point_data), axis=0) 
             mean_z += np.mean(depth_values[0])
 
         else:
@@ -339,14 +339,14 @@ def ray_casting(name, textured_mesh, test=False, visualize='', alpha=0):
         for j in range(sub_size):
             abc = (x, y_start)
             defg = list(zip(ROI_x, ROI_y))
-            if not abc in defg:
-                z = np.linspace(mean_z - 1, mean_z + 1, num=32)
-                sdf = 1
-                point_data = np.column_stack((np.full(z.shape, x),   
-                                            np.full(z.shape, y_start),
-                                            z,
-                                            np.full(z.shape, sdf)))
-                npz_array = np.concatenate((npz_array, point_data), axis=0) 
+            # if not abc in defg:
+            z = np.linspace(mean_z - 1, mean_z + 1, num=256)
+            sdf = 1
+            point_data = np.column_stack((np.full(z.shape, x),   
+                                        np.full(z.shape, y_start),
+                                        z,
+                                        np.full(z.shape, sdf)))
+            npz_array = np.concatenate((npz_array, point_data), axis=0) 
             x += 1
         print(y_start)
         y_start += 1
@@ -410,25 +410,33 @@ def ray_casting(name, textured_mesh, test=False, visualize='', alpha=0):
     pcd_o3d = o3d.geometry.PointCloud()  # create point cloud object
     pcd_o3d.points = o3d.utility.Vector3dVector(pcd)  # set pcd_np as the point cloud points
 
-    pcd_o3d = save_data_for_sdf(pcd)
-    bpa_mesh = pcd_to_obj(pcd_o3d)
+    # pcd_o3d = save_data_for_sdf(pcd)
+    # bpa_mesh = pcd_to_obj(pcd_o3d)
     destination_path = f"dataset_YCB_test/magisterka_sdf/{name.split('/')[-1]}_new/models"
     print(destination_path)
-    if not os.path.exists(destination_path):
-        os.makedirs(destination_path)
-    o3d.io.write_triangle_mesh(os.path.join(destination_path, "model_normalized.obj"), bpa_mesh, write_vertex_normals=False, write_vertex_colors=False)
+    # if not os.path.exists(destination_path):
+        # os.makedirs(destination_path)
+    # o3d.io.write_triangle_mesh(os.path.join(destination_path, "model_normalized.obj"), bpa_mesh, write_vertex_normals=False, write_vertex_colors=False)
 
 
     # Visualize:
     if visualize.lower() == 'cloud':
         origin = o3d.geometry.TriangleMesh.create_coordinate_frame(size=0.1)
-        o3d.visualization.draw_geometries([pcd_o3d, bpa_mesh, origin])
+        o3d.visualization.draw_geometries([pcd_o3d, origin])
 
     destination_filename = f"/home/piotr/Desktop/ProRoc/DeepSDF/magisterka/trening/{name.split('/')[-1]}_train.pcd"
     dest2 = f"dataset_YCB_train/depth_norm/depth_{name.split('/')[-1]}.npz"
     # o3d.io.write_point_cloud(destination_filename, pcd_o3d)
     print(f"SAVED POINT CLOUD: {destination_filename}")
-    # exit(777)
+    xyz_coord = {'querry': npz_result[:, :3]}
+    np.savez("querry_point_cloud.npz", **xyz_coord)
+    dict_data = np.load("querry_point_cloud.npz")
+    data = dict_data[dict_data.files[0]]
+    print(data, data.shape)
+
+    exit(777)
+
+    # ZAPISAĆ CHMURĘ PUNKTÓW, ALE BEZ KOLUMNY SDF. WCZYTAĆ W FUNKCJI SKRYPTU MESH.PY
 
 if __name__ == '__main__':
     # np.set_printoptions(threshold=sys.maxsize)
