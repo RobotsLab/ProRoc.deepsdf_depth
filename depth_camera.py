@@ -15,7 +15,7 @@ class Camera():
 
     def translate(self, tx, ty, tz):
         self.extrinsic_matrix[:3, 3] = [tx, ty, tz]
-        print(self.extrinsic_matrix)
+        print('Extrinsic matrix:\n',self.extrinsic_matrix)
 
     def rotate(self, roll, pitch, yaw):
 

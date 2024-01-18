@@ -1,8 +1,17 @@
 import open3d as o3d
 import numpy as np
 import os
-from depth_preprocessing import *
 
+def load_file(path: str):
+    if path.endswith(".npz"):
+        dict_data = np.load(path)
+        return dict_data
+    elif path.endswith(".pcd"):
+        pcd = o3d.io.read_point_cloud(path)
+        return pcd
+    elif path.endswith(".obj") or path.endswith(".ply"):
+        mesh = o3d.io.read_triangle_mesh(path)
+        return mesh
     
 def u_distribution(normal_distribution, mean):
     '''Changes normal distribution to U-shaped distribution'''

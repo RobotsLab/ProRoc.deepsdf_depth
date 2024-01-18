@@ -34,21 +34,6 @@ def pcd_to_obj(pcd):
     
     return bpa_mesh
 
-def scale_and_center(points, scale_factor=False):
-    points[:, 0] -= np.mean(points[:, 0])
-    points[:, 1] -= np.mean(points[:, 1])
-    points[:, 2] -= np.mean(points[:, 2])
-
-    max_distance = 0
-    for point in points:
-        max_distance = max(max_distance, np.linalg.norm(point))
-
-    if scale_factor:
-        scale_multiplier = max_distance * scale_factor
-        points /= scale_multiplier
-
-    return points
-
 def load_data(json_path):
     '''Loading filenames with name of category and .npz extension from .json file.
     Afterwards it loads .obj file with particular name.'''
@@ -66,6 +51,21 @@ def load_data(json_path):
 
     return loaded_data
 
+def scale_and_center(points, scale_factor=False):
+    points[:, 0] -= np.mean(points[:, 0])
+    points[:, 1] -= np.mean(points[:, 1])
+    points[:, 2] -= np.mean(points[:, 2])
+
+    max_distance = 0
+    for point in points:
+        max_distance = max(max_distance, np.linalg.norm(point))
+
+    if scale_factor:
+        scale_multiplier = max_distance * scale_factor
+        points /= scale_multiplier
+
+    return points
+
 def mesh_preprocessing(input_mesh, test=False):
     '''This function normalize mesh size'''
     mesh = o3d.geometry.TriangleMesh(input_mesh)
@@ -76,32 +76,14 @@ def mesh_preprocessing(input_mesh, test=False):
     # Centering
     mesh_vertices -= mesh_center
 
-    # Scaling
-    max_distance = 0
-    for vert in mesh_vertices:
-        distance = magnitude(vert)
-        max_distance = max(max_distance, distance)
-    max_distance *= 5
-    # if not test:
-    mesh_vertices /= max_distance
-    x_dist = abs(np.min(mesh_vertices[:, 0]))
-    y_dist = abs(np.min(mesh_vertices[:, 1]))
+    # z >= 0
     z_dist = abs(np.min(mesh_vertices[:, 2]))
-    print("PREPROCESSING ABS MIN Z: ", z_dist)
-    # Moving - for objects lying on side add min(mesh_vertices[:, 2])
-    # mesh_vertices[:, 0] += 0.35
-    # mesh_vertices[:, 1] += 0.4
-    # mesh_vertices[:, 2] += 0.05 + z_dist
+    mesh_vertices[:, 2] += z_dist
 
-
-    # TU BĘDZIE AUGMENTACJA augment()
-    # mesh_vertices += np.array([0.49066027, -0.02950335,  0.21953733])
-
-    # radians = -np.pi/2
-    # rotation_matrix = np.array([[np.cos(radians), -np.sin(radians), 0],
-    #         [np.sin(radians), np.cos(radians), 0],
-    #         [0, 0, 1]])
-    # mesh.rotate(rotation_matrix, center=[0,0,0])
+    # Scaling
+    max_distance = np.max(mesh_vertices[:, 2]) * 5
+    mesh_vertices /= max_distance
+    print(np.min(mesh_vertices[:, 2]), np.max(mesh_vertices[:, 2]))
 
     mesh.vertices = o3d.utility.Vector3dVector(mesh_vertices)
 
@@ -230,14 +212,20 @@ def ray_casting(name, textured_mesh, test=False, visualize='', alpha=0):
         # Change inf values to 0
         img[img == np.inf] = 0
         img = img.astype(np.float32)
+        # ROI = np.where(img != 0)
+        # y_min = np.min(ROI[0])
+        # y_max = np.max(ROI[0])
+        # x_min = np.min(ROI[1])
+        # x_max = np.max(ROI[1])
 
         ROI_ids = ids[ids != np.max(ids)]
 
         if visualize.lower() == 'depth':
+            img = img[206:337, 602:652]
             plt.imshow(img, cmap='gray')
             plt.title('Pionhole camera image')
             plt.show()
-            # exit(888)
+            # return y_min, y_max, x_min, x_max
         #save depth img
         depth_images[itr] = img
 
@@ -288,7 +276,7 @@ def ray_casting(name, textured_mesh, test=False, visualize='', alpha=0):
                 continue
 
             #Sampling front
-            samples_front = 0  # sampling(16, 1)
+            samples_front = sampling(2, 0.1)
             z = depth_values[0] + samples_front
             z = z[(z <= max_z) & (z >= min_z)]
             sdf = depth_values[0] - z
@@ -296,7 +284,7 @@ def ray_casting(name, textured_mesh, test=False, visualize='', alpha=0):
                                         np.full(sdf.shape, y),
                                         np.full(sdf.shape, z),
                                         sdf))
-            # npz_array = np.concatenate((npz_array, point_data), axis=0) 
+            npz_array = np.concatenate((npz_array, point_data), axis=0) 
             mean_z += np.mean(depth_values[0])
 
         else:
@@ -310,7 +298,7 @@ def ray_casting(name, textured_mesh, test=False, visualize='', alpha=0):
             # continue
 
             #Sampling front
-            samples_front = sampling(16, 1-distance/2)
+            samples_front = sampling(8, 1-distance/2)
             samples_front = samples_front[samples_front < distance/2]
             z = depth_values[0] + samples_front
             sdf = depth_values[0] - z
@@ -321,7 +309,7 @@ def ray_casting(name, textured_mesh, test=False, visualize='', alpha=0):
             npz_array = np.concatenate((npz_array, point_data), axis=0) 
 
             #Sampling back
-            samples_back = sampling(16, 1-distance/2)
+            samples_back = sampling(8, 1-distance/2)
             samples_back = samples_back[samples_back > -distance/2]
             z = last_surface_dist + samples_back
             sdf = z - last_surface_dist
@@ -340,8 +328,8 @@ def ray_casting(name, textured_mesh, test=False, visualize='', alpha=0):
             abc = (x, y_start)
             defg = list(zip(ROI_x, ROI_y))
             # if not abc in defg:
-            z = np.linspace(mean_z - 1, mean_z + 1, num=256)
-            sdf = 1
+            z = np.linspace(mean_z - 1, mean_z + 1, num=16)
+            sdf = 2
             point_data = np.column_stack((np.full(z.shape, x),   
                                         np.full(z.shape, y_start),
                                         z,
@@ -364,22 +352,6 @@ def ray_casting(name, textured_mesh, test=False, visualize='', alpha=0):
     x = (Cx_depth - npz_array[:, 0]) * z / Fx_depth  # y on image is x in real world
     y = (Cy_depth - npz_array[:, 1]) * z / Fy_depth  # x on image is y in real world
 
-    # # NORMALIZATION
-    # sub_img_x = (np.min(npz_array[:, 0]) + np.max(npz_array[:, 0])) // 2
-    # half_width = sub_img_width // 2
-    # min_x = np.min((sub_img_x - half_width - Cx_depth) * z / Fx_depth)
-    # max_x = np.max((sub_img_x + half_width - Cx_depth) * z / Fx_depth)
-
-    # sub_img_y = (np.min(npz_array[:, 1]) + np.max(npz_array[:, 1])) // 2
-    # half_height = sub_img_height / 2
-    # min_y = np.min((sub_img_y - half_height - Cy_depth) * z / Fy_depth)
-    # max_y = np.max((sub_img_y + half_height - Cy_depth) * z / Fy_depth)
-
-    # y_norm = y[(y > min_y) & (y < max_y)]
-    # x_norm = x[(x > min_x) & (x < max_x)]
-
-    # z_norm = (z - 1) / (2 - 1)
-
     npz_result = np.column_stack([x, y, z, npz_array[:, 3]])
     dist = np.linalg.norm(npz_array[0, :3] - npz_array[1, :3])
     print("LINALG DIST, 0 IDX Z, 1 IDX Z: ", dist, abs(npz_array[0, 3] - npz_array[1, 3]))
@@ -392,19 +364,6 @@ def ray_casting(name, textured_mesh, test=False, visualize='', alpha=0):
     print("POS DATA SHAPE, NEG DATA SHAPE: ", pos_data.shape, neg_data.shape)
 
     npz_data = {"pos": pos_data, "neg": neg_data}
-
-    # if test:
-    #     destination_path = f"data_YCB/SdfSamples/dataset_YCB_test/{name.split('/')[0]}"
-    #     if not os.path.exists(destination_path):
-    #         os.makedirs(destination_path)
-    #     np.savez(os.path.join(destination_path, name.split('/')[-1]+".npz"), **npz_data)
-    #     print(f"SAVED NPZ: {os.path.join(destination_path, name.split('/')[-1]+'.npz')}")
-    # else:
-    #     destination_path = f"data_YCB/SdfSamples/dataset_YCB_train/{name.split('/')[0]}"
-    #     if not os.path.exists(destination_path):
-    #         os.makedirs(destination_path)
-    #     np.savez(os.path.join(destination_path, name.split('/')[-1]+".npz"), **npz_data)
-    #     print(f"SAVED NPZ: {os.path.join(destination_path, name.split('/')[-1]+'.npz')}")
 
     pcd = np.column_stack((pos_data[:, 0], pos_data[:, 1], pos_data[:, 2]))
     pcd_o3d = o3d.geometry.PointCloud()  # create point cloud object
@@ -424,30 +383,43 @@ def ray_casting(name, textured_mesh, test=False, visualize='', alpha=0):
         origin = o3d.geometry.TriangleMesh.create_coordinate_frame(size=0.1)
         o3d.visualization.draw_geometries([pcd_o3d, origin])
 
+
     destination_filename = f"/home/piotr/Desktop/ProRoc/DeepSDF/magisterka/trening/{name.split('/')[-1]}_train.pcd"
     dest2 = f"dataset_YCB_train/depth_norm/depth_{name.split('/')[-1]}.npz"
     # o3d.io.write_point_cloud(destination_filename, pcd_o3d)
     print(f"SAVED POINT CLOUD: {destination_filename}")
-    xyz_coord = {'querry': npz_result[:, :3]}
-    np.savez("querry_point_cloud.npz", **xyz_coord)
-    dict_data = np.load("querry_point_cloud.npz")
-    data = dict_data[dict_data.files[0]]
-    print(data, data.shape)
+
+    if test:
+        destination_path = f"data_YCB/SdfSamples/dataset_YCB_test/{name.split('/')[0]}"
+        if not os.path.exists(destination_path):
+            os.makedirs(destination_path)
+        np.savez(os.path.join(destination_path, name.split('/')[-1]+".npz"), **npz_data)
+        print(f"SAVED NPZ: {os.path.join(destination_path, name.split('/')[-1]+'.npz')}")
+    else:
+        destination_path = f"data_YCB/SdfSamples/dataset_YCB_train/{name.split('/')[0]}"
+        if not os.path.exists(destination_path):
+            os.makedirs(destination_path)
+        np.savez(os.path.join(destination_path, name.split('/')[-1]+".npz"), **npz_data)
+        print(f"SAVED NPZ: {os.path.join(destination_path, name.split('/')[-1]+'.npz')}")
 
     exit(777)
 
     # ZAPISAĆ CHMURĘ PUNKTÓW, ALE BEZ KOLUMNY SDF. WCZYTAĆ W FUNKCJI SKRYPTU MESH.PY
 
 if __name__ == '__main__':
-    # np.set_printoptions(threshold=sys.maxsize)
-
-    json_path = 'examples/splits/magisterka_depth_test.json'
+    json_path = 'examples/splits/sensors_test.json'
     data = load_data(json_path)
-    good = []
+    y_bot, x_left = 9999, 9999
+    y_top, x_right = 0, 0
     for name, mesh in data.items():
-        # angles = [0, 90, 180, 270]
-        # for angle in angles:
         ray_casting(name, mesh, True, 'cloud')
+    #     y_min, y_max, x_min, x_max = ray_casting(name, mesh, False, '')
+    #     y_bot = min(y_min, y_bot)
+    #     y_top = max(y_max, y_top)
+    #     x_left = min(x_left, x_min)
+    #     x_right = max(x_right, x_max)
+
+    # print(y_bot, y_top, x_left, x_right)
         
 
     #     print(name)
@@ -471,53 +443,3 @@ if __name__ == '__main__':
 # depth/2722bec1947151b86e22e2d2f64c8cef depth/27b9f07da9217c89ef026123226f5519 depth/2976131e4621231655bf395569b6fd5 
 # depth/29cad22b0fc6c9985f16c469ffeb982e depth/2bbd2b37776088354e23e9314af9ae57 depth/917fd3e68de79bf69ece21a0b0786a69 
 # depth/b95559b4f2146b6a823177feb9bf5114
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-        # else:
-        #     duplicated_triangle = False
-        #     for i in range(last_surface_idx+1):
-        #         try:
-        #             distance = depth_values[i+1] - depth_values[i]
-        #         except:
-        #             distance = depth_values[i] - depth_values[i-1]
-                    
-        #         if distance == 0:
-        #             duplicated_triangle = True
-        #             continue
-        #         elif distance < 0:
-        #             distance = depth_values[i] - depth_values[i-1]
-
-        #         samples = sampling(50, distance/2)
-
-        #         z = depth_values[i] + samples
-
-        #         if i%2 == 0 or duplicated_triangle:
-        #             sdf = depth_values[i] - z
-        #             duplicated_triangle = False
-        #         else:
-        #             sdf = z - depth_values[i]
-
-        #         for j, zi in enumerate(z):
-        #             if (zi < depth_values[i]) and (sdf[j] < 0):
-        #                 sdf[j] *= -1
-        #                 # print(f"HERE WE ARE, z: {zi}, depth: {depth_values[i]}, sdf: {sdf[j]}")
-        #                 # print(f"distance: {distance}, i: {i}, whole depth: {depth_values}")
-
-        #         point_data = np.column_stack((np.full(sdf.shape, x),   
-        #                                     np.full(sdf.shape, y),
-        #                                     np.full(sdf.shape, z),
-        #                                     sdf))
-        #         npz_array = np.concatenate((npz_array, point_data), axis=0) 
-    # exit(777)

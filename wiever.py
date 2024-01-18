@@ -9,10 +9,12 @@ def array_to_pcd(array):
 def load(path):
     if path.endswith(".npz"):
         dict_data = np.load(path)
-        data = dict_data[dict_data.files[1]]
-        new_data = data[data[:, 3] <= 0.1]
-        print(new_data)
-        return array_to_pcd(new_data)
+        neg_data = dict_data[dict_data.files[1]]
+        pos_data = dict_data[dict_data.files[0]]
+        data = np.concatenate([neg_data])
+        print(data.shape)
+
+        return array_to_pcd(data)
     elif path.endswith(".pcd"):
         pcd = o3d.io.read_point_cloud(path)
         return pcd
@@ -23,15 +25,18 @@ def load(path):
     
     return None
 
-def visualize(pcd):
+def visualize(*pcd):
     origin = o3d.geometry.TriangleMesh.create_coordinate_frame(size=0.1)
-
-    o3d.visualization.draw_geometries([origin, pcd])
+    pcd = list(pcd)
+    pcd.append(origin)
+    o3d.visualization.draw_geometries(pcd)
 
 if __name__ == '__main__':
-    path = "examples/depth/Reconstructions/1500/Meshes/dataset_YCB_test/magisterka_depth/29b6f9c7ae76847e763c517ce709a8cc.npz"
+    path = "data_YCB/SdfSamples/dataset_YCB_test/sensors_depth/29b6f9c7ae76847e763c517ce709a8cc.npz"
+    path2 = "data_YCB/SdfSamples/dataset_YCB_train/sensors_depth/1ef68777bfdb7d6ba7a07ee616e34cd7.npz"
     point_cloud = load(path)
+    pcd2 = load(path2)
     if point_cloud.points != 0:
-        visualize(point_cloud)
+        visualize(pcd2, point_cloud)
     else:
         print("File is empty")
