@@ -168,3 +168,6 @@ cython_debug/
 #  option (not recommended) you can uncomment the following to ignore the entire idea folder.
 #.idea/
 RANSAC_fitting.py
+DepthCamera_2023-06-26-17-12-17.json
+DepthCamera_2023-06-26-17-12-17.png
+note.txt
