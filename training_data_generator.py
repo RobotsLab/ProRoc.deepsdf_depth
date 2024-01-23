@@ -104,7 +104,8 @@ def generate_pcd(input_file):
     
     return pcd
 
-def find_sdf(input_file, pcd, point, index):
+def find_sdf(input_file, pcd, point, z, index):
+    point += z
     height, width = input_file.ndy, input_file.ndx
 
     v = (index // width) + input_file.ny
@@ -128,11 +129,18 @@ def find_sdf(input_file, pcd, point, index):
 
     return sdf
 
-if __name__ == '__main__':
-    SOURCE_PATH = 'dataset_YCB_train/1ef68777bfdb7d6ba7a07ee616e34cd7/models/model_normalized_1_1.txt'
-    DESTINATION_PATH = 'dataset_YCB_train/1ef68777bfdb7d6ba7a07ee616e34cd7/models'
+def sample_points(unique_surf_distances, num_samples):
+    if len(unique_surf_distances) % 2 == 0:
+        samples = []
+        for i, surface in enumerate(unique_surf_distances):
+            distance = (surface - unique_surf_distances[0])/2
+        return 1
+    else:
+        return None
 
-    nazwa_pliku = "plik.txt"
+if __name__ == '__main__':
+    SOURCE_PATH = 'dataset_YCB_train/DepthDeepSDF/files/untitled_6_0.txt'
+    DESTINATION_PATH = 'dataset_YCB_train/DepthDeepSDF/files'
 
     input_file = DepthFile(SOURCE_PATH)
     load_depth_file(input_file)
@@ -144,15 +152,18 @@ if __name__ == '__main__':
     output_file.pixels = []
     for i, pixel in enumerate(input_file.pixels):
         unique = np.unique(pixel[pixel!=0])
-        if unique.any():
+        if unique.any() and len(unique)%2 == 0:
             rd = unique[0] - input_file.dz
             dd = [rd]
             for j, number in enumerate(unique):
                 if j == 0:
                     continue
-                sampled_distance = (number - unique[0])/2
-                sdf = find_sdf(input_file, pcd, sampled_distance+unique[0], i)
-
+                if j%2 == 1:
+                    sampled_distance = (number - unique[0])/2
+                    sdf = 0
+                else:
+                    sampled_distance = (number - unique[0])/2
+                    sdf = find_sdf(input_file, pcd, sampled_distance, unique[0], i)
                 dd.append(sampled_distance)
                 dd.append(sdf)
             dd = np.array(dd)
@@ -160,4 +171,7 @@ if __name__ == '__main__':
 
         else:
             output_file.pixels.append(np.array([0.]))
+        if len(unique)%2 != 0:
+            odds+=1
     output_file.save()
+    print(odds)

@@ -40,8 +40,8 @@ class File():
         self.ds = ds
 
     def get_bounding_box_coords(self, nx, ny, z):
-        self.nx = nx
-        self.ny = ny
+        self.nx = int(nx)
+        self.ny = int(ny)
         self.z = z
 
     def get_bounding_box_size(self, ndx, ndy, dz, dz2):
@@ -165,7 +165,7 @@ def stack_images(file, input_mesh, camera, img, ids):
     scene.add_triangles(scene_mesh)
     depth_images = {}
     itr = 0
-    sub_size = 256
+    sub_size = 200
     min_z = 100
     max_z = 0
     center_x = 0
@@ -193,11 +193,14 @@ def stack_images(file, input_mesh, camera, img, ids):
             x_max = np.max(ROI[1])
             min_z = min(min_z, np.min(img[img!=0]))
             max_z = max(max_z, np.max(img[img!=0]))
-            file.get_bounding_box_coords(x_min, y_min, min_z)
-            file.get_bounding_box_size(x_max-x_min, y_max-y_min, min_z-0.1, min_z+0.4)
+            x_center = (x_min+x_max)//2
+            y_center = (y_min+y_max)//2
+            file.get_bounding_box_coords(x_center-(sub_size/2), y_center-(sub_size/2), min_z)
+            # file.get_bounding_box_size(x_max-x_min, y_max-y_min, min_z-0.1, min_z+0.4)
+            file.get_bounding_box_size(sub_size, sub_size, min_z-0.1, min_z+0.4)
             
         ROI_ids = ids[ids != np.max(ids)]
-        img = img[y_min:y_max, x_min:x_max]
+        img = img[file.ny:file.ny+sub_size, file.nx:file.nx+sub_size]
 
         plt.imshow(img, cmap='gray')
         plt.title('Pionhole camera image')
@@ -227,11 +230,9 @@ def stack_images(file, input_mesh, camera, img, ids):
 
 
 if __name__ == '__main__':
-    SOURCE_PATH = 'dataset_YCB_train/1ef68777bfdb7d6ba7a07ee616e34cd7/models/model_normalized_1.txt'
-    MESH_PATH = 'dataset_YCB_train/1ef68777bfdb7d6ba7a07ee616e34cd7/models/model_normalized.obj'
-    DESTINATION_PATH = 'dataset_YCB_train/1ef68777bfdb7d6ba7a07ee616e34cd7/models'
-
-    nazwa_pliku = "plik.txt"
+    SOURCE_PATH = 'dataset_YCB_train/DepthDeepSDF/files/untitled_4.txt'
+    MESH_PATH = 'dataset_YCB_train/DepthDeepSDF/1c9f9e25c654cbca3c71bf3f4dd78475/models/untitled.ply'
+    DESTINATION_PATH = 'dataset_YCB_train/DepthDeepSDF/files/'
 
     input_file = ViewsFile(SOURCE_PATH)
     load_generator_file(input_file)
