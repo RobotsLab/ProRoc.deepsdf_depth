@@ -60,8 +60,8 @@ class File():
             f.write(f'{self.ndx} {self.ndy} {self.dz} {self.dz2}\n')
             for pixel in self.pixels:
                 for p in pixel:
-                    f.write(f"{' '.join(map(str, p))}\n")
-                    print(p)
+                    for i in p:
+                        f.write(f"{' '.join(map(str, i))}\n")
 
 
 def set_camera(input_file, output_file):
@@ -153,8 +153,8 @@ def load_generator_file(input_file):
         frames = file.readlines()
         input_file.frames = [np.array(frame.split(), dtype=np.float32) for frame in frames]
 
-def stack_images(file, input_mesh, camera, img, ids):
-    '''
+def stack_images(file, input_mesh, camera):
+    '''SOLVED
     Gdy któryś z promieni pierwszy dotknie następnego trójkąta, ten trójkąt nie zostanie zarejestrowany przez sąsiedni promień.
     Sprawdzić ile promieni przecina trójkąt do usunięcia, jeżeli po usunięciu liczba intersekcji spadnie dla 
     większej ilości promieni niż przewidziano to nie można usunąć tego mesha.
@@ -163,75 +163,53 @@ def stack_images(file, input_mesh, camera, img, ids):
     scene_mesh = o3d.t.geometry.TriangleMesh.from_legacy(mesh)
     scene = o3d.t.geometry.RaycastingScene()
     scene.add_triangles(scene_mesh)
-    depth_images = {}
-    itr = 0
-    sub_size = 200
-    min_z = 100
-    max_z = 0
-    center_x = 0
-    center_y = 0
+    sub_size = 175
 
-    # Stacking depth images
-    while True:
-        rays = camera.raycasting()
+    rays = camera.raycasting()
 
-        # Depth image.
-        ans = scene.cast_rays(rays)
-        img = ans['t_hit'].numpy()
-        ids = ans["primitive_ids"].numpy()
+    # Depth image.
+    lx = scene.list_intersections(rays)
+    t_hit = lx['t_hit'].numpy()
+    ray_ids = lx['ray_ids'].numpy()
 
-        # Change inf values to 0
-        img[img == np.inf] = 0
-        img = img.astype(np.float32)
-        if np.max(img) == 0:
-            break
-        if itr == 0:
-            ROI = np.where(img != 0)
-            y_min = np.min(ROI[0])
-            y_max = np.max(ROI[0])
-            x_min = np.min(ROI[1])
-            x_max = np.max(ROI[1])
-            min_z = min(min_z, np.min(img[img!=0]))
-            max_z = max(max_z, np.max(img[img!=0]))
-            x_center = (x_min+x_max)//2
-            y_center = (y_min+y_max)//2
-            file.get_bounding_box_coords(x_center-(sub_size/2), y_center-(sub_size/2), min_z)
-            # file.get_bounding_box_size(x_max-x_min, y_max-y_min, min_z-0.1, min_z+0.4)
-            file.get_bounding_box_size(sub_size, sub_size, min_z-0.1, min_z+0.4)
-            
-        ROI_ids = ids[ids != np.max(ids)]
-        img = img[file.ny:file.ny+sub_size, file.nx:file.nx+sub_size]
+    unique_ray_ids, counts = np.unique(ray_ids, return_counts=True)
+    # Create a dictionary to store distances for each ray
+    distances_dict = {ray_id: [] for ray_id in unique_ray_ids}
 
-        plt.imshow(img, cmap='gray')
-        plt.title('Pionhole camera image')
-        plt.show()
-        # return y_min, y_max, x_min, x_max
-        #save depth img
-        depth_images[itr] = np.reshape(img, (-1,1))
+    # Iterate through the data and store distances for each ray
+    for i in range(len(ray_ids)):
+        distances_dict[ray_ids[i]].append(t_hit[i])
+    
+    depth_image = np.zeros((file.Ndy, file.Ndx, np.max(counts)))
 
-        # exit when there is no mesh to intersect with
-        mesh.remove_triangles_by_index(list(ROI_ids))
-        if not mesh.has_triangles() or np.max(img) == 0:
-            break
+    min_y = file.Ndy
+    min_x = file.Ndx
+    max_y = 0
+    max_x = 0
 
-        scene_mesh = o3d.t.geometry.TriangleMesh.from_legacy(mesh)
+    for key in distances_dict.keys():
+        y = key // file.Ndx
+        x = key % file.Ndx
+        depth_values = np.asarray(distances_dict[key])
+        depth_image[y, x, :depth_values.shape[0]] = depth_values
+        min_y = min(min_y, y)
+        min_x = min(min_x, x)
+        max_y = max(max_y, y)
+        max_x = max(max_x, x)
 
-        # Create a scene and add the triangle mesh
-        scene_mesh.compute_vertex_normals()
-        scene = o3d.t.geometry.RaycastingScene()
-        scene.add_triangles(scene_mesh)
-        
-        itr += 1
-    print("min z", min_z)
-    print("max z", max_z)
-    keys = list(depth_images.keys())
-    print("DICT kEYS: ", keys)
-    return depth_images
+    min_z = np.min(depth_image[depth_image!=0])
+    max_z = np.max(depth_image[depth_image!=0])
+    x_center = (min_x+max_x)//2
+    y_center = (min_y+max_y)//2
+    file.get_bounding_box_coords(x_center-(sub_size/2), y_center-(sub_size/2), min_z)
+    # file.get_bounding_box_size(x_max-x_min, y_max-y_min, min_z-0.1, min_z+0.4)
+    file.get_bounding_box_size(sub_size, sub_size, min_z-0.1, min_z+0.4)
 
+    return depth_image[file.ny:file.ny+file.ndy, file.nx:file.nx+file.ndx, :]
 
 if __name__ == '__main__':
-    SOURCE_PATH = 'dataset_YCB_train/DepthDeepSDF/files/untitled_4.txt'
-    MESH_PATH = 'dataset_YCB_train/DepthDeepSDF/1c9f9e25c654cbca3c71bf3f4dd78475/models/untitled.ply'
+    SOURCE_PATH = 'dataset_YCB_train/DepthDeepSDF/files/untitled_2.txt'
+    MESH_PATH = 'dataset_YCB_train/DepthDeepSDF/1a1c0a8d4bad82169f0594e65f756cf5/models/untitled.ply'
     DESTINATION_PATH = 'dataset_YCB_train/DepthDeepSDF/files/'
 
     input_file = ViewsFile(SOURCE_PATH)
@@ -267,12 +245,14 @@ if __name__ == '__main__':
         plt.imshow(img, cmap='gray')
         plt.title('Pionhole camera image')
         plt.show()
-        depth_images = stack_images(output_file, scaled_mesh, camera, img, ids)
+        depth_image = stack_images(output_file, scaled_mesh, camera)
+        plt.imshow(depth_image[:,:,0], cmap='gray')
+        plt.title('Pionhole camera image')
+        plt.show()
 
         scaled_mesh = translate(scaled_mesh, -frame[:3])
         scaled_mesh = rotate(scaled_mesh, -frame[3:])
 
-        depth_image = np.hstack(list(depth_images.values()))
         output_file.pixels.append(depth_image)
         output_file.save(view)
         output_file.pixels.clear()
