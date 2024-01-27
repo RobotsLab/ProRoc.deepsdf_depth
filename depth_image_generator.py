@@ -3,9 +3,9 @@ import open3d as o3d
 import matplotlib.pyplot as plt
 import copy
 
-from depth_utils import *
-from depth_camera import Camera
-from file_generator import File as ViewsFile
+from depthdeep_sdf.depth_utils import *
+from depthdeep_sdf.depth_camera import Camera
+from depth_file_generator import File as ViewsFile
 
 class File():
     def __init__(self, source_path, destination_dir=''):
@@ -58,10 +58,10 @@ class File():
             f.write(f'{self.ds}\n')
             f.write(f'{self.nx} {self.ny} {self.z}\n')
             f.write(f'{self.ndx} {self.ndy} {self.dz} {self.dz2}\n')
-            for pixel in self.pixels:
-                for p in pixel:
-                    for i in p:
-                        f.write(f"{' '.join(map(str, i))}\n")
+            for image in self.pixels:
+                for row in image:
+                    for pixel in row:
+                        f.write(f"{' '.join(map(str, pixel))}\n")
 
 
 def set_camera(input_file, output_file):
@@ -208,8 +208,8 @@ def stack_images(file, input_mesh, camera):
     return depth_image[file.ny:file.ny+file.ndy, file.nx:file.nx+file.ndx, :]
 
 if __name__ == '__main__':
-    SOURCE_PATH = 'dataset_YCB_train/DepthDeepSDF/files/untitled_2.txt'
-    MESH_PATH = 'dataset_YCB_train/DepthDeepSDF/1a1c0a8d4bad82169f0594e65f756cf5/models/untitled.ply'
+    SOURCE_PATH = 'dataset_YCB_train/DepthDeepSDF/files/untitled_3.txt'
+    MESH_PATH = 'dataset_YCB_train/DepthDeepSDF/1c9f9e25c654cbca3c71bf3f4dd78475/models/untitled.ply'
     DESTINATION_PATH = 'dataset_YCB_train/DepthDeepSDF/files/'
 
     input_file = ViewsFile(SOURCE_PATH)

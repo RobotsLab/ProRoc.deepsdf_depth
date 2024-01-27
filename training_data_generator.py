@@ -2,9 +2,10 @@ import argparse
 import open3d as o3d
 import matplotlib.pyplot as plt
 import copy
+import random
 
-from depth_utils import *
-from depth_camera import Camera
+from depthdeep_sdf.depth_utils import *
+from depthdeep_sdf.depth_camera import Camera
 from depth_image_generator import File as DepthFile
 
 class File():
@@ -53,7 +54,7 @@ class File():
         with open(os.path.join(self.destination_dir, self.name + '_inp' +'.txt'), 'w') as f:
             for pixel in self.pixels:
                 f.write(f"{' '.join(map(str, pixel))}\n")
-                print(pixel)
+        print("Saved:", os.path.join(self.destination_dir, self.name + '_inp' +'.txt'))
                 # print(pixel)
                 # for p in pixel:
                     # print(p)
@@ -137,41 +138,69 @@ def sample_points(unique_surf_distances, num_samples):
         return 1
     else:
         return None
-
+#6512 6628 1_0
 if __name__ == '__main__':
-    SOURCE_PATH = 'dataset_YCB_train/DepthDeepSDF/files/untitled_6_0.txt'
-    DESTINATION_PATH = 'dataset_YCB_train/DepthDeepSDF/files'
+    for a in range(3):
+        a += 1
+        for b in range(5):
+            SOURCE_PATH = f'dataset_YCB_train/DepthDeepSDF/files/untitled_{a}_{b}.txt'
+            DESTINATION_PATH = 'dataset_YCB_train/DepthDeepSDF/files'
 
-    input_file = DepthFile(SOURCE_PATH)
-    load_depth_file(input_file)
+            input_file = DepthFile(SOURCE_PATH)
+            load_depth_file(input_file)
 
-    output_file = File(SOURCE_PATH, DESTINATION_PATH)
-    
-    pcd = generate_pcd(input_file)
-    odds = 0
-    output_file.pixels = []
-    for i, pixel in enumerate(input_file.pixels):
-        unique = np.unique(pixel[pixel!=0])
-        if unique.any() and len(unique)%2 == 0:
-            rd = unique[0] - input_file.dz
-            dd = [rd]
-            for j, number in enumerate(unique):
-                if j == 0:
-                    continue
-                if j%2 == 1:
-                    sampled_distance = (number - unique[0])/2
-                    sdf = 0
+            output_file = File(SOURCE_PATH, DESTINATION_PATH)
+            
+            pcd = generate_pcd(input_file)
+            odds = 0
+            nans = 0
+            output_file.pixels = []
+            for i, pixel in enumerate(input_file.pixels):
+                unique = np.unique(pixel[pixel!=0])
+                if unique.any() and len(unique)%2 == 0:
+                    first_surface = unique[0]
+                    fornt_bbox_z = input_file.dz
+                    back_bbox_z = input_file.dz2
+                    rd = first_surface - fornt_bbox_z
+                    for j, point_z in enumerate(unique):
+                        pixel = [rd]
+                        if j%2 == 1:
+                            sampled_point = random.uniform(unique[j-1], point_z)
+                            dd = sampled_point - rd - fornt_bbox_z
+                            sdf = 0.
+                        elif j > 0:
+                            sampled_point = random.uniform(unique[j-1], point_z)
+                            dd = sampled_point - rd - fornt_bbox_z
+                            sdf = find_sdf(input_file, pcd, dd, first_surface, i)
+                        else:
+                            sampled_point = random.uniform(point_z, unique[j+1])
+                            dd = sampled_point - rd - fornt_bbox_z
+                            sdf = 0.
+                        pixel.append(dd)
+                        pixel.append(sdf)
+                        pixel = np.array(pixel)
+                        output_file.pixels.append(pixel)
+                        if point_z == unique[-1]:
+                            pixel = [rd]
+                            sampled_point = random.uniform(point_z, back_bbox_z)
+                            dd = sampled_point - rd - fornt_bbox_z
+                            sdf = find_sdf(input_file, pcd, dd, first_surface, i)
+                            pixel.append(dd)
+                            pixel.append(sdf)
+                            pixel = np.array(pixel)
+                            output_file.pixels.append(pixel)
+                elif unique.any() and len(unique)%2 == 1:
+                    output_file.pixels.append(np.array([np.nan]))
+                    odds+=1
                 else:
-                    sampled_distance = (number - unique[0])/2
-                    sdf = find_sdf(input_file, pcd, sampled_distance, unique[0], i)
-                dd.append(sampled_distance)
-                dd.append(sdf)
-            dd = np.array(dd)
-            output_file.pixels.append(dd)
+                    output_file.pixels.append(np.array([np.nan]))
+                    nans+=1
+            output_file.save()
+            print("Odds:", odds)
+            print("Total:", len(input_file.pixels))
+            print("Ratio:", format(odds/len(input_file.pixels), ".00%"))
 
-        else:
-            output_file.pixels.append(np.array([0.]))
-        if len(unique)%2 != 0:
-            odds+=1
-    output_file.save()
-    print(odds)
+            print("\nNans:", nans)
+            print("Total:", len(input_file.pixels))
+            print("Ratio:", format(nans/len(input_file.pixels), ".00%"), "\n")
+            print("--------------------------------------")

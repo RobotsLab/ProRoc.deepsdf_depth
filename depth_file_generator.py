@@ -2,8 +2,8 @@ import argparse
 import open3d as o3d
 import matplotlib.pyplot as plt
 
-from depth_utils import *
-from depth_camera import Camera
+from depthdeep_sdf.depth_utils import *
+from depthdeep_sdf.depth_camera import Camera
 
 class File():
     def __init__(self, source_path, destination_dir=''):
@@ -34,6 +34,7 @@ class File():
             f.write(f"{' '.join(map(str, self.o_c_transformation))}\n")
             for frame in self.frames:
                 f.write(f"{' '.join(map(str, frame))}\n")
+        print(f"Saved: {os.path.join(self.destination_dir, self.name + '_' + str(self.version) + '.txt')}")
 
 
 def set_camera(file):
@@ -118,11 +119,9 @@ def scale(mesh, scale_factor, scale_to_unit=False):
 
     return scaled_mesh, real_scale_factor
 
-
-
 if __name__ == '__main__':
-    SOURCE_PATH = 'dataset_YCB_train/1ef68777bfdb7d6ba7a07ee616e34cd7/models/model_normalized.obj'
-    DESTINATION_PATH = 'dataset_YCB_train/1ef68777bfdb7d6ba7a07ee616e34cd7/models'
+    SOURCE_PATH = 'dataset_YCB_train/DepthDeepSDF/1c9f9e25c654cbca3c71bf3f4dd78475/models/untitled.ply'
+    DESTINATION_PATH = 'dataset_YCB_train/DepthDeepSDF/files'
 
     generated_file = File(SOURCE_PATH, DESTINATION_PATH)
 
