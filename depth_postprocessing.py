@@ -2,7 +2,7 @@ import os
 import open3d as o3d
 import numpy as np
 import matplotlib.pyplot as plt
-from depth_camera import Camera
+from depthdeep_sdf.depth_camera import Camera
 
 def loadSDFpoints(source_path):
     dict_data = np.load(source_path)

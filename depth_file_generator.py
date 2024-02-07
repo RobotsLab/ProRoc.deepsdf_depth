@@ -2,8 +2,8 @@ import argparse
 import open3d as o3d
 import matplotlib.pyplot as plt
 
-from depthdeep_sdf.depth_utils import *
-from depthdeep_sdf.depth_camera import Camera
+from depth.utils import *
+from depth.camera import Camera
 
 class File():
     def __init__(self, source_path, destination_dir=''):
