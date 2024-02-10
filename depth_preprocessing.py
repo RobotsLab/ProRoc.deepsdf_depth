@@ -4,8 +4,8 @@ import os
 import numpy as np
 import matplotlib.pyplot as plt
 import sys
-from depthdeep_sdf.depth_utils import *
-from depthdeep_sdf.depth_camera import Camera
+from depth.utils import *
+from depth.camera import Camera
 
 def save_data_for_sdf(pcd):
     pcd_o3d = o3d.geometry.PointCloud()  # create point cloud object

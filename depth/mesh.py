@@ -8,16 +8,17 @@ from skimage import measure
 import time
 import torch
 import open3d as o3d
+import random
 
 import deep_sdf.utils
 
 
 def create_mesh(
-    decoder, latent_vec, filename, N=256, max_batch=32 ** 3, offset=None, scale=None
+    decoder, latent_vec, filename, N=256, max_batch=32 ** 2, offset=None, scale=None, input_data=None
 ):
     start = time.time()
     ply_filename = filename
-
+    print(filename)
     decoder.eval()
 
     # NOTE: the voxel_origin is actually the (bottom, left, down) corner, not the middle
@@ -26,20 +27,19 @@ def create_mesh(
 
     overall_index = torch.arange(0, N ** 3, 1, out=torch.LongTensor())
 
-    samples = prepare_samples()
-    # samples = original_sampling(N, overall_index, voxel_size, voxel_origin)
-    print(samples, samples.shape, type(samples))
+    samples = prepare_samples(input_data)
 
-    num_samples = N ** 3
+
+    num_samples = N ** 2
 
     samples.requires_grad = False
 
     head = 0
 
     while head < num_samples:
-        sample_subset = samples[head : min(head + max_batch, num_samples), 0:3].cuda()
+        sample_subset = samples[head : min(head + max_batch, num_samples), 0:2].cuda()
 
-        samples[head : min(head + max_batch, num_samples), 3] = (
+        samples[head : min(head + max_batch, num_samples), 2] = (
             deep_sdf.utils.decode_sdf(decoder, latent_vec, sample_subset)
             .squeeze(1)
             .detach()
@@ -47,15 +47,28 @@ def create_mesh(
         )
         head += max_batch
 
-    sdf_values = samples[:, 3]
+    sdf_values = samples[:, 2]
+    print("SDF VALUES:", sdf_values)
     # tutaj wywołać funkcję
     save_sdf_samples(
         samples=samples,
         filename=filename
     )
 
+    closest_cube_root = int(np.floor(samples.shape[0] ** (1/3)))
+    print("CLOSEST CUBE ROOT", closest_cube_root)
+    diff_to_remove = samples.shape[0] - closest_cube_root ** 3
+    print("DIFF TO REMOVE", diff_to_remove)
+    rows = np.array(random.sample(range(samples.shape[0]-diff_to_remove), diff_to_remove))
+    print(np.unique(rows).shape)
+    print("Rows", rows, rows.shape)
+    print(samples, samples.shape, type(samples))
+    samples = np.delete(samples, rows, 0)
+    # samples = original_sampling(N, overall_index, voxel_size, voxel_origin)
+    print(samples, samples.shape, type(samples))
+    sdf_values = samples[:, 2]
 
-    sdf_values = sdf_values.reshape(N, N, N)
+    sdf_values = sdf_values.reshape(closest_cube_root, closest_cube_root, closest_cube_root)
 
     end = time.time()
     print("sampling takes: %f" % (end - start))
@@ -142,20 +155,31 @@ def save_sdf_samples(
         filename
 ):
     samples_numpy = np.asarray(samples)
-    data = {"pos": samples_numpy[samples_numpy[:, 3] > 0], "neg" : samples_numpy[samples_numpy[:, 3] < 0]}
+    data = {"pos": samples_numpy[samples_numpy[:, 2] > 0], "neg" : samples_numpy[samples_numpy[:, 2] < 0]}
     np.savez(filename + ".npz", **data)
     print(f"NPZ file saved in {filename}")
 
-def prepare_samples():
-    dict_data = np.load("querry_point_cloud.npz")
-    data = dict_data[dict_data.files[0]]
-    sdf_column = np.zeros((data.shape[0], 1))
-    samples = np.append(data, sdf_column, axis=1)
-    t_samples = torch.from_numpy(samples)
+def prepare_samples(data):
+    unique_rd, inverse_indices = np.unique(data[:, 0], return_inverse=True)
+    unique_rd = unique_rd[inverse_indices]
 
-    t_samples = t_samples.to(torch.float32)
+    number_of_samples = 10
+    repeated_values = np.repeat(unique_rd, number_of_samples)
 
-    return t_samples
+    # Create the second column with linspace values
+    second_column_values = np.hstack([np.linspace(0, 0.5, number_of_samples) for _ in range(len(unique_rd))])
+
+    # Reshape the arrays to have a single column
+    first_column = repeated_values.reshape(-1, 1)
+    second_column = second_column_values.reshape(-1, 1)
+    sdf = np.zeros(first_column.shape)
+
+    # Concatenate the columns horizontally to create the final array
+    result_array = np.hstack((first_column, second_column, sdf))    
+    result_tensor = torch.from_numpy(result_array)
+    result_tensor = result_tensor.to(torch.float32)
+    
+    return result_tensor
 
 def original_sampling(N, overall_index, voxel_size, voxel_origin):
 

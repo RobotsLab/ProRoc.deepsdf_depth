@@ -2,7 +2,8 @@ import os
 import open3d as o3d
 import numpy as np
 import matplotlib.pyplot as plt
-from depthdeep_sdf.depth_camera import Camera
+
+from depth.camera import Camera
 
 def loadSDFpoints(source_path):
     dict_data = np.load(source_path)
@@ -14,10 +15,10 @@ def loadSDFpoints(source_path):
 def construct_image(points, name):
 
     # camera parameters
-    Fx_depth = 924.348
-    Fy_depth = 924.921
-    Cx_depth = 646.676
-    Cy_depth = 344.145
+    Fx_depth = 924
+    Fy_depth = 924
+    Cx_depth = 640
+    Cy_depth = 360
 
     width=1280
     height=720
@@ -97,19 +98,20 @@ def construct_image(points, name):
 
 def points_stats(points):
     # Count the number of points for each unique SDF value
-    sdf_values = points[:, 3]
+    sdf_values = points[:, 2]
 
     unique_sdf_values, counts = np.unique(sdf_values, return_counts=True)
-    # print(unique_sdf_values, counts)
-    # plt.hist(sdf_values, bins=10, edgecolor='black', alpha=0.7)
+    print(unique_sdf_values, counts)
+    plt.hist(sdf_values, bins=20, edgecolor='black', alpha=0.7)
 
-    # # Create the column chart
+    # Create the column chart
     # plt.bar(unique_sdf_values, counts, width=0.05, align='center')
 
-    # # Customize the plot
-    # plt.title('SDF Value Distribution')
-    # plt.xlabel('SDF Value')
-    # plt.ylabel('Number of Points')
+    # Customize the plot
+    plt.title('SDF Value Distribution')
+    plt.xlabel('SDF Value')
+    plt.ylabel('Number of Points')
+    plt.show()
 
 def depth_to_pcd(depth_image, Cx, Cy, Fx, Fy):
     z = depth_image[:, 2]
@@ -176,7 +178,7 @@ def comparison_prepare(filename):
     return mesh
 
 def main():
-    source_path = "examples/depth/Reconstructions/1500/Meshes/dataset_YCB_test/magisterka_depth/"
+    source_path = "examples/depth/Reconstructions/1000/Meshes/dataset_YCB_test/mug_depth/"
     # source_path = "dataset_YCB_test/magisterka_sdf/"
     filenames = os.listdir(source_path)
     print(filenames)
@@ -199,10 +201,11 @@ def main():
         #     continue
 
         source_file = os.path.join(source_path, filename)
-        if not filename.endswith(".npz"):
-            continue
+        # if not filename.endswith(".npz"):
+            # continue
         points = loadSDFpoints(source_file)
         points_stats(points)
+        # exit(777)
         mesh, pcd = construct_image(points, source_file)
 
         origin = o3d.geometry.TriangleMesh.create_coordinate_frame(size=1)

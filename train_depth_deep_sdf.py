@@ -11,6 +11,7 @@ import math
 import json
 import time
 
+from depth import data
 import deep_sdf
 import deep_sdf.workspace as ws
 
@@ -339,7 +340,7 @@ def main_function(experiment_directory, continue_from, batch_split):
     with open(train_split_file, "r") as f:
         train_split = json.load(f)
 
-    sdf_dataset = deep_sdf.data.SDFSamples(
+    sdf_dataset = data.SDFSamples(
         data_source, train_split, num_samp_per_scene, load_ram=False
     )
 
@@ -458,23 +459,24 @@ def main_function(experiment_directory, continue_from, batch_split):
         decoder.train()
 
         adjust_learning_rate(lr_schedules, optimizer_all, epoch)
-        print('----------------------sdf_loader', type(sdf_loader), sdf_loader)
+        # print('----------------------sdf_loader', type(sdf_loader), sdf_loader)
         for sdf_data, indices in sdf_loader:
             torch.cuda.empty_cache()
-
-            print(sdf_data.size())
             # Process the input data
-            sdf_data = sdf_data.reshape(-1, 4)
-            print("SDF_DATA:", sdf_data, sdf_data.size())
+            # print(sdf_data.size())
+
+            sdf_data = sdf_data.reshape(-1, 3)
+            # print("SDF_DATA:", sdf_data, sdf_data.size())
 
             num_sdf_samples = sdf_data.shape[0]
 
             sdf_data.requires_grad = False
 
-            xyz = sdf_data[:, 0:3]
-            sdf_gt = sdf_data[:, 3].unsqueeze(1)
-            print("XYZ:", xyz, xyz.size())
-            print("SDF_GT:", sdf_gt, sdf_gt.size())
+            xyz = sdf_data[:, 0:2]
+            sdf_gt = sdf_data[:, 2].unsqueeze(1)
+            # print("XYZ:", xyz, xyz.size())
+            # print("SDF_GT:", sdf_gt, sdf_gt.size())
+
 
             if enforce_minmax:
                 sdf_gt = torch.clamp(sdf_gt, minT, maxT)
@@ -495,14 +497,14 @@ def main_function(experiment_directory, continue_from, batch_split):
             for i in range(batch_split):
 
                 batch_vecs = lat_vecs(indices[i])
-                print("BATCHE VECS:", batch_vecs, batch_vecs.size())
+                # print("BATCHE VECS:", batch_vecs, batch_vecs.size())
 
                 input = torch.cat([batch_vecs, xyz[i]], dim=1)
                 input = input.to(torch.float32)
-                print("INPUT:", input.size(), input)
-                print(input[:, -3:])
-                print(input.shape[1])
-                exit(877)            
+                # print("INPUT:", input.size(), input)
+                # print(input[:, -2:])
+                # print(input.shape[1])
+                # exit(877)
                 # NN optimization
                 pred_sdf = decoder(input)
 
@@ -571,6 +573,7 @@ if __name__ == "__main__":
         "-e",
         dest="experiment_directory",
         required=True,
+        default="examples/depth",
         help="The experiment directory. This directory should include "
         + "experiment specifications in 'specs.json', and logging will be "
         + "done in this directory as well.",
@@ -598,5 +601,5 @@ if __name__ == "__main__":
     args = arg_parser.parse_args()
 
     deep_sdf.configure_logging(args)
-
+    print(args.experiment_directory, args.continue_from)
     main_function(args.experiment_directory, args.continue_from, int(args.batch_split))

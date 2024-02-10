@@ -10,9 +10,7 @@ import torch
 import torch.utils.data
 
 import deep_sdf.workspace as ws
-# import workspace as ws
-import matplotlib.pyplot as plt
-
+import workspace as ws
 
 def get_instance_filenames(data_source, split):
     npzfiles = []

@@ -102,7 +102,7 @@ def generate_pcd(input_file):
     pcd.points = o3d.utility.Vector3dVector(points)  # set pcd_np as the point cloud points
 
     origin = o3d.geometry.TriangleMesh.create_coordinate_frame(size=0.1)
-    # o3d.visualization.draw_geometries([pcd, origin])
+    o3d.visualization.draw_geometries([pcd, origin])
     
     return pcd
 

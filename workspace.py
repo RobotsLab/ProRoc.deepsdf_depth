@@ -4,11 +4,10 @@ import json
 import numpy as np
 import os
 from sklearn.model_selection import train_test_split
-import matplotlib.pyplot as plt
 import xml.etree.ElementTree as ET
 import random
 from scipy.spatial import KDTree
-from depth_camera import Camera
+from depth.camera import Camera
 
 def rescaling_mesh(vertices):
     mesh_vertices = np.copy(vertices)
@@ -810,7 +809,7 @@ def main():
     # pcd_to_npz()
     # load_to_rc()
     # pcd_to_obj()
-    npz_overview()
+    # npz_overview()
     # save_to_json()
     # pcd_to_obj_ycb()
     # rescaling()
@@ -823,7 +822,15 @@ def main():
     #     mesh = o3d.io.read_triangle_mesh(src_path)
     #     mesh_normalization(mesh=mesh, class_path="/home/piotr/Desktop/ProRoc/DeepSDF/ycb1/ycb_gt_y/ycb", filename=name)
     #     print(name)
+    with open("data_YCB/SdfSamples/dataset_YCB_train/mug_depth/untitled_1_0_inp.txt", "r") as file:
+        lines = file.readlines()
 
+    # Remove "nan" values from the lines
+    cleaned_lines = [line.strip() for line in lines if "nan" not in line]
+
+    # Convert the cleaned lines to a NumPy array
+    data_array = np.loadtxt(cleaned_lines)
+    print(data_array, data_array.shape)
 
 if __name__ == "__main__":
     main()

@@ -25,7 +25,7 @@ class Decoder(nn.Module):
         def make_sequence():
             return []
 
-        dims = [latent_size + 3] + dims + [1]
+        dims = [latent_size + 2] + dims + [1]
 
         self.num_layers = len(dims)
         self.norm_layers = norm_layers
@@ -72,10 +72,10 @@ class Decoder(nn.Module):
 
     # input: N x (L+3)
     def forward(self, input):
-        xyz = input[:, -3:]
+        xyz = input[:, -2:]
 
         if input.shape[1] > 3 and self.latent_dropout:
-            latent_vecs = input[:, :-3]
+            latent_vecs = input[:, :-2]
             latent_vecs = F.dropout(latent_vecs, p=0.2, training=self.training)
             x = torch.cat([latent_vecs, xyz], 1)
         else:

@@ -4,8 +4,8 @@ import matplotlib.pyplot as plt
 import copy
 import random
 
-from depthdeep_sdf.depth_utils import *
-from depthdeep_sdf.depth_camera import Camera
+from depth.utils import *
+from depth.camera import Camera
 from depth_image_generator import File as DepthFile
 
 class File():
@@ -59,6 +59,17 @@ class File():
                 # for p in pixel:
                     # print(p)
 
+def load(path):
+    if path.endswith(".npz"):
+        dict_data = np.load(path)
+        neg_data = dict_data[dict_data.files[1]]
+        pos_data = dict_data[dict_data.files[0]]
+        data = np.concatenate([neg_data, pos_data])
+        print(data.shape)
+
+        return data
+    
+    return None
 
 def load_depth_file(input_file):
     with open(input_file.source_path, "r") as file:
@@ -140,67 +151,78 @@ def sample_points(unique_surf_distances, num_samples):
         return None
 #6512 6628 1_0
 if __name__ == '__main__':
-    for a in range(3):
-        a += 1
-        for b in range(5):
-            SOURCE_PATH = f'dataset_YCB_train/DepthDeepSDF/files/untitled_{a}_{b}.txt'
-            DESTINATION_PATH = 'dataset_YCB_train/DepthDeepSDF/files'
+    SOURCE_PATH = f'dataset_YCB_train/DepthDeepSDF/files/untitled_1_0.txt'
+    NPZ_PATH = 'examples/depth/Reconstructions/1000/Meshes/dataset_YCB_test/mug_depth/untitled_1_0_inp_test.npz'
+    INPUT_PATH = 'data_YCB/SdfSamples/dataset_YCB_test/mug_depth/untitled_1_0_inp_test.txt'
 
-            input_file = DepthFile(SOURCE_PATH)
-            load_depth_file(input_file)
+    data_file = DepthFile(SOURCE_PATH)
+    load_depth_file(data_file)
 
-            output_file = File(SOURCE_PATH, DESTINATION_PATH)
-            
-            pcd = generate_pcd(input_file)
-            odds = 0
-            nans = 0
-            output_file.pixels = []
-            for i, pixel in enumerate(input_file.pixels):
-                unique = np.unique(pixel[pixel!=0])
-                if unique.any() and len(unique)%2 == 0:
-                    first_surface = unique[0]
-                    fornt_bbox_z = input_file.dz
-                    back_bbox_z = input_file.dz2
-                    rd = first_surface - fornt_bbox_z
-                    for j, point_z in enumerate(unique):
-                        pixel = [rd]
-                        if j%2 == 1:
-                            sampled_point = random.uniform(unique[j-1], point_z)
-                            dd = sampled_point - rd - fornt_bbox_z
-                            sdf = 0.
-                        elif j > 0:
-                            sampled_point = random.uniform(unique[j-1], point_z)
-                            dd = sampled_point - rd - fornt_bbox_z
-                            sdf = find_sdf(input_file, pcd, dd, first_surface, i)
-                        else:
-                            sampled_point = random.uniform(point_z, unique[j+1])
-                            dd = sampled_point - rd - fornt_bbox_z
-                            sdf = 0.
-                        pixel.append(dd)
-                        pixel.append(sdf)
-                        pixel = np.array(pixel)
-                        output_file.pixels.append(pixel)
-                        if point_z == unique[-1]:
-                            pixel = [rd]
-                            sampled_point = random.uniform(point_z, back_bbox_z)
-                            dd = sampled_point - rd - fornt_bbox_z
-                            sdf = find_sdf(input_file, pcd, dd, first_surface, i)
-                            pixel.append(dd)
-                            pixel.append(sdf)
-                            pixel = np.array(pixel)
-                            output_file.pixels.append(pixel)
-                elif unique.any() and len(unique)%2 == 1:
-                    output_file.pixels.append(np.array([np.nan]))
-                    odds+=1
+    input_file = []
+    with open(INPUT_PATH, 'r') as f:
+        input_file = f.readlines()
+    input_pixels_list = [np.array(pixel.split(), dtype=np.float32) for pixel in input_file]
+    output_ndarray = load(NPZ_PATH)
+
+    max_dim = max(arr.shape[0] for arr in input_pixels_list)
+    padded_arrays = [np.pad(arr, [(0, max_dim - arr.shape[0])], constant_values=np.nan) for arr in input_pixels_list]
+    result_array = np.vstack(padded_arrays)
+
+    visualize_dict = {}
+    exit(777)
+    output_file = File(SOURCE_PATH, DESTINATION_PATH)
+    
+    pcd = generate_pcd(data_file)
+    odds = 0
+    nans = 0
+    output_file.pixels = []
+    for i, pixel in enumerate(data_file.pixels):
+        unique = np.unique(pixel[pixel!=0])
+        if unique.any() and len(unique)%2 == 0:
+            first_surface = unique[0]
+            fornt_bbox_z = data_file.dz
+            back_bbox_z = data_file.dz2
+            rd = first_surface - fornt_bbox_z
+            for j, point_z in enumerate(unique):
+                pixel = [rd]
+                if j%2 == 1:
+                    sampled_point = random.uniform(unique[j-1], point_z)
+                    dd = sampled_point - rd - fornt_bbox_z
+                    sdf = 0.
+                elif j > 0:
+                    sampled_point = random.uniform(unique[j-1], point_z)
+                    dd = sampled_point - rd - fornt_bbox_z
+                    sdf = find_sdf(data_file, pcd, dd, first_surface, i)
                 else:
-                    output_file.pixels.append(np.array([np.nan]))
-                    nans+=1
-            output_file.save()
-            print("Odds:", odds)
-            print("Total:", len(input_file.pixels))
-            print("Ratio:", format(odds/len(input_file.pixels), ".00%"))
+                    sampled_point = random.uniform(point_z, unique[j+1])
+                    dd = sampled_point - rd - fornt_bbox_z
+                    sdf = 0.
+                pixel.append(dd)
+                pixel.append(sdf)
+                pixel = np.array(pixel)
+                output_file.pixels.append(pixel)
+                if point_z == unique[-1]:
+                    pixel = [rd]
+                    sampled_point = random.uniform(point_z, back_bbox_z)
+                    dd = sampled_point - rd - fornt_bbox_z
+                    sdf = find_sdf(data_file, pcd, dd, first_surface, i)
+                    pixel.append(dd)
+                    pixel.append(sdf)
+                    pixel = np.array(pixel)
+                    output_file.pixels.append(pixel)
+        elif unique.any() and len(unique)%2 == 1:
+            output_file.pixels.append(np.array([np.nan]))
+            odds+=1
+        else:
+            output_file.pixels.append(np.array([np.nan]))
+            nans+=1
 
-            print("\nNans:", nans)
-            print("Total:", len(input_file.pixels))
-            print("Ratio:", format(nans/len(input_file.pixels), ".00%"), "\n")
-            print("--------------------------------------")
+    output_file.save()
+    print("Odds:", odds)
+    print("Total:", len(data_file.pixels))
+    print("Ratio:", format(odds/len(data_file.pixels), ".00%"))
+
+    print("\nNans:", nans)
+    print("Total:", len(data_file.pixels))
+    print("Ratio:", format(nans/len(data_file.pixels), ".00%"), "\n")
+    print("--------------------------------------")

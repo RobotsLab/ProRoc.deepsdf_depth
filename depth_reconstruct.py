@@ -9,10 +9,9 @@ import random
 import time
 import torch
 
-import deep_sdf
 import deep_sdf.workspace as ws
-
-import depth
+from deep_sdf import add_common_args, configure_logging
+from depth import data, mesh
 
 
 def reconstruct(
@@ -51,7 +50,7 @@ def reconstruct(
     for e in range(num_iterations):
 
         decoder.eval()
-        sdf_data = depth.data.unpack_sdf_samples_from_ram(
+        sdf_data = data.unpack_sdf_samples_from_ram(
             test_sdf, num_samples
         ).cuda()
         xyz = sdf_data[:, 0:2]
@@ -139,11 +138,11 @@ if __name__ == "__main__":
         action="store_true",
         help="Skip meshes which have already been reconstructed.",
     )
-    deep_sdf.add_common_args(arg_parser)
+    add_common_args(arg_parser)
 
     args = arg_parser.parse_args()
 
-    deep_sdf.configure_logging(args)
+    configure_logging(args)
 
     def empirical_stat(latent_vecs, indices):
         lat_mat = torch.zeros(0).cuda()
@@ -184,7 +183,7 @@ if __name__ == "__main__":
     with open(args.split_filename, "r") as f:
         split = json.load(f)
 
-    npz_filenames = depth.data.get_instance_filenames(args.data_source, split)  # First change deep_sdf -> depth
+    npz_filenames = data.get_instance_filenames(args.data_source, split)  # First change deep_sdf -> depth
 
     random.shuffle(npz_filenames)
 
@@ -217,14 +216,14 @@ if __name__ == "__main__":
     reconstruct_time = 0
     for ii, npz in enumerate(npz_filenames):
 
-        if "npz" not in npz:
+        if "txt" not in npz:
             continue
 
         full_filename = os.path.join(args.data_source, ws.sdf_samples_subdir, npz)
 
         logging.debug("loading {}".format(npz))
 
-        data_sdf = depth.data.read_sdf_samples_into_ram(full_filename)
+        data_sdf = data.read_sdf_samples_into_ram(full_filename)
 
         for k in range(repeat):
 
@@ -249,9 +248,6 @@ if __name__ == "__main__":
                 continue
 
             logging.info("reconstructing {}".format(npz))
-
-            # data_sdf[0] = data_sdf[0][torch.randperm(data_sdf[0].shape[0])]
-            # data_sdf[1] = data_sdf[1][torch.randperm(data_sdf[1].shape[0])]
 
             start = time.time()
             err, latent = reconstruct(
@@ -279,12 +275,12 @@ if __name__ == "__main__":
 
             if not os.path.exists(os.path.dirname(mesh_filename)):
                 os.makedirs(os.path.dirname(mesh_filename))
-            # try:
+
             if not save_latvec_only:
                 start = time.time()
                 with torch.no_grad():
-                    deep_sdf.mesh.create_mesh(
-                        decoder, latent, mesh_filename, N=256, max_batch=int(2 ** 18)
+                    mesh.create_mesh(
+                        decoder, latent, mesh_filename, N=256, max_batch=int(2 ** 18), input_data=data_sdf
                     )
                 logging.debug("total time: {}".format(time.time() - start))
                 print("total time: {}".format(time.time() - start))
@@ -293,7 +289,5 @@ if __name__ == "__main__":
                 os.makedirs(os.path.dirname(latent_filename))
 
             torch.save(latent.unsqueeze(0), latent_filename)
-            # except:
-                # print(f"Unable to reconstruct {latent_filename}")
 
     print(reconstruct_time/len(npz_filenames))

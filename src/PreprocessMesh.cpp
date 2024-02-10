@@ -313,7 +313,7 @@ int main(int argc, char** argv) {
   std::cout << "variance: " << variance << " second: " << second_variance << std::endl;
   if (test_flag) {
     second_variance = variance / 100;
-    num_samp_near_surf_ratio = 45.0f / 50.0f;
+    num_samp_near_surf_ratio = 47.0f / 50.0f;
     num_sample = 1000000;
   }
 
