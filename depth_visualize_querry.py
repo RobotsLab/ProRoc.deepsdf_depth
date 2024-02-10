@@ -62,9 +62,8 @@ class File():
 def load(path):
     if path.endswith(".npz"):
         dict_data = np.load(path)
-        neg_data = dict_data[dict_data.files[1]]
         pos_data = dict_data[dict_data.files[0]]
-        data = np.concatenate([neg_data, pos_data])
+        data = np.concatenate([pos_data])
         print(data.shape)
 
         return data
@@ -166,58 +165,60 @@ if __name__ == '__main__':
 
     max_dim = max(arr.shape[0] for arr in input_pixels_list)
     padded_arrays = [np.pad(arr, [(0, max_dim - arr.shape[0])], constant_values=np.nan) for arr in input_pixels_list]
-    result_array = np.vstack(padded_arrays)
+    input_pixels_array = np.vstack(padded_arrays)
 
     visualize_dict = {}
-    exit(777)
-    output_file = File(SOURCE_PATH, DESTINATION_PATH)
-    
-    pcd = generate_pcd(data_file)
-    odds = 0
-    nans = 0
-    output_file.pixels = []
-    for i, pixel in enumerate(data_file.pixels):
-        unique = np.unique(pixel[pixel!=0])
-        if unique.any() and len(unique)%2 == 0:
-            first_surface = unique[0]
-            fornt_bbox_z = data_file.dz
-            back_bbox_z = data_file.dz2
-            rd = first_surface - fornt_bbox_z
-            for j, point_z in enumerate(unique):
-                pixel = [rd]
-                if j%2 == 1:
-                    sampled_point = random.uniform(unique[j-1], point_z)
-                    dd = sampled_point - rd - fornt_bbox_z
-                    sdf = 0.
-                elif j > 0:
-                    sampled_point = random.uniform(unique[j-1], point_z)
-                    dd = sampled_point - rd - fornt_bbox_z
-                    sdf = find_sdf(data_file, pcd, dd, first_surface, i)
-                else:
-                    sampled_point = random.uniform(point_z, unique[j+1])
-                    dd = sampled_point - rd - fornt_bbox_z
-                    sdf = 0.
-                pixel.append(dd)
-                pixel.append(sdf)
-                pixel = np.array(pixel)
-                output_file.pixels.append(pixel)
-                if point_z == unique[-1]:
-                    pixel = [rd]
-                    sampled_point = random.uniform(point_z, back_bbox_z)
-                    dd = sampled_point - rd - fornt_bbox_z
-                    sdf = find_sdf(data_file, pcd, dd, first_surface, i)
-                    pixel.append(dd)
-                    pixel.append(sdf)
-                    pixel = np.array(pixel)
-                    output_file.pixels.append(pixel)
-        elif unique.any() and len(unique)%2 == 1:
-            output_file.pixels.append(np.array([np.nan]))
-            odds+=1
+    itr = 0
+    sampled_points = 10
+    for i, pixel in enumerate(input_pixels_array):
+        if np.all(np.isnan(pixel)):
+            visualize_dict[i] = pixel
         else:
-            output_file.pixels.append(np.array([np.nan]))
-            nans+=1
+            visualize_dict[i] = output_ndarray[sampled_points*itr:sampled_points*itr+10,:]
+            itr+=1
+    min_z = 100
+    min_row0 = 100
+    min_row1 = 100
+    depth_image = []
+    for key, value in visualize_dict.items():
+        pixel = []
+        for row in value:
+            x = (key % data_file.ndx) + data_file.nx
+            y = (key // data_file.ndy) + data_file.ny
+            if np.any(np.isnan(row)):
+                # pixel.append(np.array([x, y, np.nan, np.nan]))
+                break
+            else:
+                z = row[0] + row[1] + data_file.dz
+                min_z = min(z, min_z)
+                min_row0 = min(row[0], min_row0)
+                min_row1 = min(row[1], min_row1)
+                sdf = row[2]
+                depth_image.append(np.array([x, y, z, sdf]))
 
-    output_file.save()
+    image = np.vstack(depth_image)  # tu jest coś zjebane
+    
+    z = np.array(image[:, 2])
+    x = (data_file.cx - image[:, 0]) * z / data_file.f  # y on image is x in real world
+    y = (data_file.cy - image[:, 1]) * z / data_file.f  # x on image is y in real world
+    points = np.column_stack((x, y, z))
+    pcd = o3d.geometry.PointCloud()  # create point cloud object
+    pcd.points = o3d.utility.Vector3dVector(points)  # set pcd_np as the point cloud points
+
+    # Set the colors based on values
+    min_sdf = np.min(image[:, 3])
+    mean_sdf = np.mean(image[:, 3])
+    max_sdf = np.max(image[:, 3])
+    normalized_sdf = (image[:, 3] - min_sdf) / (max_sdf - min_sdf)
+
+    color_array = np.zeros((len(normalized_sdf), 3))
+    color_array[:, 0] = normalized_sdf  # Set red channel based on values
+    pcd.colors = o3d.utility.Vector3dVector(color_array)
+
+    origin = o3d.geometry.TriangleMesh.create_coordinate_frame(size=1)
+    o3d.visualization.draw_geometries([pcd, origin])
+    exit(777)
+
     print("Odds:", odds)
     print("Total:", len(data_file.pixels))
     print("Ratio:", format(odds/len(data_file.pixels), ".00%"))
