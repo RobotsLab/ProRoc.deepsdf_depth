@@ -88,8 +88,7 @@ def load_depth_file(input_file):
 
 if __name__ == '__main__':
     SOURCE_PATH = f'dataset_YCB_train/DepthDeepSDF/files/untitled_1_0.txt'
-    NPZ_PATH = 'examples/depth/Reconstructions/1000/Meshes/dataset_YCB_test/mug_depth/untitled_1_0_inp_test.npz'
-    INPUT_PATH = 'data_YCB/SdfSamples/dataset_YCB_test/mug_depth/untitled_1_0_inp_test.txt'
+    INPUT_PATH = 'dataset_YCB_train/DepthDeepSDF/input_training_data_u_dist/untitled_1_0_inp.txt'
 
     data_file = DepthFile(SOURCE_PATH)
     load_depth_file(data_file)
@@ -98,7 +97,6 @@ if __name__ == '__main__':
     with open(INPUT_PATH, 'r') as f:
         input_file = f.readlines()
     input_pixels_list = [np.array(pixel.split(), dtype=np.float32) for pixel in input_file]
-    output_ndarray = load_querry_points(NPZ_PATH)
 
     max_dim = max(arr.shape[0] for arr in input_pixels_list)
     padded_arrays = [np.pad(arr, [(0, max_dim - arr.shape[0])], constant_values=np.nan) for arr in input_pixels_list]
@@ -106,16 +104,46 @@ if __name__ == '__main__':
     print(type(input_pixels_array), len(input_pixels_array), input_pixels_array.shape)
 
     visualize_dict = {}
+    sampled_points = 4
     itr = 0
-    sampled_points = 20
+    pixel_index = 0
+    fails = 0
+    while itr < len(input_pixels_array):
+        if np.all(np.isnan(input_pixels_array[itr])):
+            visualize_dict[pixel_index] = input_pixels_array[itr]
+            itr += 1
 
-    for i, pixel in enumerate(input_pixels_array):
-        if np.all(np.isnan(pixel)):
-            visualize_dict[i] = pixel
         else:
-            visualize_dict[i] = output_ndarray[sampled_points*itr:sampled_points*itr+10,:]
-            itr+=1
+            points = []
+            sdf_sign = input_pixels_array[itr][-1]
+            for j in range(sampled_points):
+                point = input_pixels_array[itr]
+                if (sdf_sign != 0 and point[-1] != 0) or (sdf_sign == 0 and point[-1] == 0):
+                    points.append(point)
+                    itr += 1
+                else:
+                    # print(itr, input_pixels_array[itr], j, point)
+                    fails += 1
+                    break
+            visualize_dict[pixel_index] = np.array(points)
+        pixel_index += 1
+    # print(visualize_dict)
+    # print(fails)
+    # exit(777)
+    # samples = 0
+    # while itr < len(input_pixels_array):
+    #     if np.all(np.isnan(input_pixels_array[itr])):
+    #         visualize_dict[itr] = input_pixels_array[itr]
+    #         itr+=1
+    #     else:
+    #         points = []
+    #         for i in range(sampled_points):
+    #             points.append(input_pixels_array[itr+i])
+    #             samples += 1
+    #         visualize_dict[itr] = np.array(points)
+    #         itr+=sampled_points
 
+    # print(samples)
     depth_image = []
     for key, value in visualize_dict.items():
         pixel = []
@@ -164,3 +192,8 @@ if __name__ == '__main__':
     origin = o3d.geometry.TriangleMesh.create_coordinate_frame(size=1)
     o3d.visualization.draw_geometries([pcd, origin])
     # o3d.io.write_point_cloud('examples/depth/Reconstructions/1000/Meshes/dataset_YCB_test/mug_depth/untitled_1_0_inp_test.pcd', pcd)
+    #nasycenie nieliniowe kolorów do wizualizacji
+    # dane do json
+    # odwrócić wartości sdf - na zewnątrz 0 wewnątrz dodatnie wartości
+    # ASAP wysłać dane
+    # badanie na 1 obiekcie, 50 widoków

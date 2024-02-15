@@ -86,8 +86,8 @@ def generate_pcd(input_file):
         img[input_file.ny:input_file.ny+input_file.ndy,input_file.nx:input_file.nx+input_file.ndx] = pixels[:, :, image]
         roi_y, roi_x = np.where(img!=0)
 
-        # plt.imshow(img, cmap='gray')
-        # plt.show()
+        plt.imshow(img, cmap='gray')
+        plt.show()
 
         z = np.array(img[img!=0])
         x = (input_file.cx - roi_x) * z / input_file.f  # y on image is x in real world
@@ -101,7 +101,7 @@ def generate_pcd(input_file):
     pcd.points = o3d.utility.Vector3dVector(points)  # set pcd_np as the point cloud points
 
     origin = o3d.geometry.TriangleMesh.create_coordinate_frame(size=0.1)
-    o3d.visualization.draw_geometries([pcd, origin])
+    # o3d.visualization.draw_geometries([pcd, origin])
     
     return pcd
 
