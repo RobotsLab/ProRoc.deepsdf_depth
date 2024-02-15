@@ -155,19 +155,28 @@ def save_sdf_samples(
         filename
 ):
     samples_numpy = np.asarray(samples)
-    data = {"pos": samples_numpy[samples_numpy[:, 2] > 0], "neg" : samples_numpy[samples_numpy[:, 2] < 0]}
+    print("OUTPUT")
+    for i in range(samples_numpy.shape[0])[:20]:
+        print(samples_numpy[i, :])
+    print("ZERO", samples_numpy[samples_numpy[:, 2] == 0].shape)
+    data = {"pos": samples_numpy, "neg" : None}
     np.savez(filename + ".npz", **data)
     print(f"NPZ file saved in {filename}")
+    exit(777)
+
 
 def prepare_samples(data):
     unique_rd, inverse_indices = np.unique(data[:, 0], return_inverse=True)
     unique_rd = unique_rd[inverse_indices]
 
-    number_of_samples = 10
+    number_of_samples = 100
     repeated_values = np.repeat(unique_rd, number_of_samples)
 
     # Create the second column with linspace values
-    second_column_values = np.hstack([np.linspace(0, 0.5, number_of_samples) for _ in range(len(unique_rd))])
+    # second_column_values = np.hstack([np.linspace(0, 0.5, number_of_samples) for _ in range(len(unique_rd))])
+    second_column_values = np.hstack([0.5 * np.random.rand(number_of_samples) for _ in range(len(unique_rd))])
+
+    print("SECOND COLUMN VALUES:", second_column_values, second_column_values.shape)
 
     # Reshape the arrays to have a single column
     first_column = repeated_values.reshape(-1, 1)
@@ -178,7 +187,9 @@ def prepare_samples(data):
     result_array = np.hstack((first_column, second_column, sdf))    
     result_tensor = torch.from_numpy(result_array)
     result_tensor = result_tensor.to(torch.float32)
-    
+    print("INPUT")
+    for i in range(result_array.shape[0])[:20]:
+        print(result_array[i, :])
     return result_tensor
 
 def original_sampling(N, overall_index, voxel_size, voxel_origin):

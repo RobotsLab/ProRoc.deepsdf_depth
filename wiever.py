@@ -11,7 +11,7 @@ def load(path):
         dict_data = np.load(path)
         neg_data = dict_data[dict_data.files[1]]
         pos_data = dict_data[dict_data.files[0]]
-        data = np.concatenate([neg_data])
+        data = np.concatenate([neg_data, pos_data])
         print(data.shape)
 
         return array_to_pcd(data)

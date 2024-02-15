@@ -1,6 +1,7 @@
 import open3d as o3d
 import numpy as np
 import os
+import matplotlib.pyplot as plt
 
 import logging
 import torch
@@ -17,13 +18,22 @@ def load_file(path: str):
         mesh = o3d.io.read_triangle_mesh(path)
         return mesh
     
-def u_distribution(normal_distribution, mean):
+def u_distribution(normal_distribution, mean, sigma):
     '''Changes normal distribution to U-shaped distribution'''
-    result = np.array(normal_distribution)
-    result = np.where(result < mean, mean - result, result)
-    result = np.where(result > mean, 3 * mean - result, result)
-    # print(result)
-    return result
+    normal_distribution -= mean
+    min_value = np.min(normal_distribution)
+    max_value = np.max(normal_distribution)
+    normal_distribution[normal_distribution > 0] += mean - max_value
+    normal_distribution[normal_distribution < 0] += mean + abs(min_value)
+    normal_distribution[normal_distribution == 0] += mean
+
+    # count, bins, ignored = plt.hist(normal_distribution, 30, density=True)
+
+    # plt.plot(bins, 1/(sigma * np.sqrt(2 * np.pi)) * np.exp( - (bins - mean)**2 / (2 * sigma**2) ), linewidth=2, color='r')
+
+    # plt.show()
+
+    return normal_distribution
 
 def vec_towards_triangle(triangle, vertices):
     '''Find vector directed towards center of triangle.'''

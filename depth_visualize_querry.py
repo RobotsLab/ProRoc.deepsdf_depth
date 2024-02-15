@@ -59,12 +59,12 @@ class File():
                 # for p in pixel:
                     # print(p)
 
-def load(path):
+def load_querry_points(path):
     if path.endswith(".npz"):
         dict_data = np.load(path)
         pos_data = dict_data[dict_data.files[0]]
         data = np.concatenate([pos_data])
-        print(data.shape)
+        # print(data.shape)
 
         return data
     
@@ -85,74 +85,12 @@ def load_depth_file(input_file):
         pixels = file.readlines()
         input_file.pixels = [np.array(pixel.split(), dtype=np.float32) for pixel in pixels]
 
-def generate_pcd(input_file):
-    pixels = np.asarray(input_file.pixels)
-    pixels = np.reshape(pixels, (input_file.ndy, input_file.ndx, -1))
 
-    points = np.zeros((1,3))
-
-    for image in range(pixels.shape[2]):
-        img = np.zeros((input_file.Ndy, input_file.Ndx))
-        img[input_file.ny:input_file.ny+input_file.ndy,input_file.nx:input_file.nx+input_file.ndx] = pixels[:, :, image]
-        roi_y, roi_x = np.where(img!=0)
-
-        # plt.imshow(img, cmap='gray')
-        # plt.show()
-
-        z = np.array(img[img!=0])
-        x = (input_file.cx - roi_x) * z / input_file.f  # y on image is x in real world
-        y = (input_file.cy - roi_y) * z / input_file.f  # x on image is y in real world
-
-        points_data = np.column_stack([x, y, z])
-        points = np.concatenate((points, points_data), axis=0) 
-
-    points = np.delete(points, 0, axis=0)
-    pcd = o3d.geometry.PointCloud()  # create point cloud object
-    pcd.points = o3d.utility.Vector3dVector(points)  # set pcd_np as the point cloud points
-
-    origin = o3d.geometry.TriangleMesh.create_coordinate_frame(size=0.1)
-    # o3d.visualization.draw_geometries([pcd, origin])
-    
-    return pcd
-
-def find_sdf(input_file, pcd, point, z, index):
-    point += z
-    height, width = input_file.ndy, input_file.ndx
-
-    v = (index // width) + input_file.ny
-    u = (index % width) + input_file.nx
-
-    z = point
-    x = (input_file.cx - u) * z / input_file.f  # y on image is x in real world
-    y = (input_file.cy - v) * z / input_file.f  # x on image is y in real world
-
-    sampled_point = np.column_stack([x, y, z])
-
-    object_points = np.asarray(pcd.points)
-    
-    from scipy.spatial import KDTree
-
-    # find 10 nearest points
-    tree = KDTree(object_points, leafsize=object_points.shape[0]+1)
-    distances, ndx = tree.query([sampled_point], k=1)
-
-    sdf = np.linalg.norm(object_points[ndx] - sampled_point)
-
-    return sdf
-
-def sample_points(unique_surf_distances, num_samples):
-    if len(unique_surf_distances) % 2 == 0:
-        samples = []
-        for i, surface in enumerate(unique_surf_distances):
-            distance = (surface - unique_surf_distances[0])/2
-        return 1
-    else:
-        return None
-#6512 6628 1_0
 if __name__ == '__main__':
     SOURCE_PATH = f'dataset_YCB_train/DepthDeepSDF/files/untitled_1_0.txt'
     NPZ_PATH = 'examples/depth/Reconstructions/1000/Meshes/dataset_YCB_test/mug_depth/untitled_1_0_inp_test.npz'
-    INPUT_PATH = 'data_YCB/SdfSamples/dataset_YCB_test/mug_depth/untitled_1_0_inp_test.txt'
+    # INPUT_PATH = 'data_YCB/SdfSamples/dataset_YCB_test/mug_depth/untitled_1_0_inp_test.txt'
+    INPUT_PATH = 'dataset_YCB_train/DepthDeepSDF/input_training_data_u_dist/untitled_1_0_inp.txt'
 
     data_file = DepthFile(SOURCE_PATH)
     load_depth_file(data_file)
@@ -161,24 +99,37 @@ if __name__ == '__main__':
     with open(INPUT_PATH, 'r') as f:
         input_file = f.readlines()
     input_pixels_list = [np.array(pixel.split(), dtype=np.float32) for pixel in input_file]
-    output_ndarray = load(NPZ_PATH)
+    output_ndarray = load_querry_points(NPZ_PATH)
 
     max_dim = max(arr.shape[0] for arr in input_pixels_list)
     padded_arrays = [np.pad(arr, [(0, max_dim - arr.shape[0])], constant_values=np.nan) for arr in input_pixels_list]
     input_pixels_array = np.vstack(padded_arrays)
+    print(type(input_pixels_array), len(input_pixels_array), input_pixels_array.shape)
 
     visualize_dict = {}
     itr = 0
-    sampled_points = 10
-    for i, pixel in enumerate(input_pixels_array):
-        if np.all(np.isnan(pixel)):
-            visualize_dict[i] = pixel
-        else:
-            visualize_dict[i] = output_ndarray[sampled_points*itr:sampled_points*itr+10,:]
+    sampled_points = 4
+
+    # for i, pixel in enumerate(input_pixels_array):
+    #     if np.all(np.isnan(pixel)):
+    #         visualize_dict[i] = pixel
+    #     else:
+    #         visualize_dict[i] = output_ndarray[sampled_points*itr:sampled_points*itr+10,:]
+    #         itr+=1
+    samples = 0
+    while itr < len(input_pixels_array):
+        if np.all(np.isnan(input_pixels_array[itr])):
+            visualize_dict[itr] = input_pixels_array[itr]
             itr+=1
-    min_z = 100
-    min_row0 = 100
-    min_row1 = 100
+        else:
+            points = []
+            for i in range(sampled_points):
+                points.append(input_pixels_array[itr+i])
+                samples += 1
+            visualize_dict[itr] = np.array(points)
+            itr+=sampled_points
+
+    print(samples)
     depth_image = []
     for key, value in visualize_dict.items():
         pixel = []
@@ -190,40 +141,40 @@ if __name__ == '__main__':
                 break
             else:
                 z = row[0] + row[1] + data_file.dz
-                min_z = min(z, min_z)
-                min_row0 = min(row[0], min_row0)
-                min_row1 = min(row[1], min_row1)
                 sdf = row[2]
                 depth_image.append(np.array([x, y, z, sdf]))
 
     image = np.vstack(depth_image)  # tu jest coś zjebane
+    print(np.min(image, axis=0), np.max(image, axis=0))
     
     z = np.array(image[:, 2])
     x = (data_file.cx - image[:, 0]) * z / data_file.f  # y on image is x in real world
     y = (data_file.cy - image[:, 1]) * z / data_file.f  # x on image is y in real world
+
     points = np.column_stack((x, y, z))
+
     pcd = o3d.geometry.PointCloud()  # create point cloud object
     pcd.points = o3d.utility.Vector3dVector(points)  # set pcd_np as the point cloud points
 
     # Set the colors based on values
-    min_sdf = np.min(image[:, 3])
-    mean_sdf = np.mean(image[:, 3])
-    max_sdf = np.max(image[:, 3])
-    normalized_sdf = (image[:, 3] - min_sdf) / (max_sdf - min_sdf)
+    sdf_array = image[:, 3]
+    min_sdf = np.min(sdf_array)
+    mean_sdf = np.mean(sdf_array)
+    max_sdf = np.max(sdf_array)
+    normalized_sdf_array = (sdf_array - min_sdf) / (max_sdf - min_sdf)
 
-    color_array = np.zeros((len(normalized_sdf), 3))
-    color_array[:, 0] = normalized_sdf  # Set red channel based on values
+    color_array = np.zeros((len(normalized_sdf_array), 3))
+    color_array[:, 0] = normalized_sdf_array
+
+    zero_sdf_array = np.zeros(normalized_sdf_array.shape)
+    zero_sdf_array[normalized_sdf_array <= 0.0001] = 1
+    zero_sdf_array[normalized_sdf_array >= 0.0001] = 0
+    color_array[:, 1] = zero_sdf_array
+
+    color_array[:, 2] = normalized_sdf_array
+
     pcd.colors = o3d.utility.Vector3dVector(color_array)
 
     origin = o3d.geometry.TriangleMesh.create_coordinate_frame(size=1)
     o3d.visualization.draw_geometries([pcd, origin])
-    exit(777)
-
-    print("Odds:", odds)
-    print("Total:", len(data_file.pixels))
-    print("Ratio:", format(odds/len(data_file.pixels), ".00%"))
-
-    print("\nNans:", nans)
-    print("Total:", len(data_file.pixels))
-    print("Ratio:", format(nans/len(data_file.pixels), ".00%"), "\n")
-    print("--------------------------------------")
+    # o3d.io.write_point_cloud('examples/depth/Reconstructions/1000/Meshes/dataset_YCB_test/mug_depth/untitled_1_0_inp_test.pcd', pcd)
