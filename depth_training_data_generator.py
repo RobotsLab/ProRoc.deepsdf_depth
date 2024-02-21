@@ -150,115 +150,84 @@ def sample_points(start, stop, num_samples):
 
 #6512 6628 1_0
 if __name__ == '__main__':
-    for a in range(3):
-        a += 1
-        for b in range(5):
-            SOURCE_PATH = f'dataset_YCB_train/DepthDeepSDF/files/untitled_{a}_{b}.txt'
-            DESTINATION_PATH = 'dataset_YCB_train/DepthDeepSDF/input_training_data_u_dist'
+    for b in range(5):
+        SOURCE_PATH = f'dataset_YCB_train/DepthDeepSDF/files/untitled_1_{b}.txt'
+        DESTINATION_PATH = 'dataset_YCB_train/DepthDeepSDF/input_training_data_u_dist'
 
-            input_file = DepthFile(SOURCE_PATH)
-            load_depth_file(input_file)
+        input_file = DepthFile(SOURCE_PATH)
+        load_depth_file(input_file)
 
-            output_file = File(SOURCE_PATH, DESTINATION_PATH)
-            
-            pcd = generate_pcd(input_file)
-            odds = 0
-            nans = 0
-            problems = 0
-            num_samples = 4
-            samples = 0
-            output_file.pixels = []
-            visualize_dict = {}
-            for i, pixel in enumerate(input_file.pixels):
-                unique = np.unique(pixel[pixel!=0])
-                x = (i % input_file.ndx) + input_file.nx
-                y = (i // input_file.ndx) + input_file.ny
-                key = f"{x}, {y}"
-                visualize_dict[key] = []
-                if unique.any() and len(unique)%2 == 0:
-                    first_surface = unique[0]
-                    fornt_bbox_z = input_file.dz
-                    back_bbox_z = input_file.dz2
-                    rd = first_surface - fornt_bbox_z
-                    for j, point_z in enumerate(unique):
+        output_file = File(SOURCE_PATH, DESTINATION_PATH)
+        
+        pcd = generate_pcd(input_file)
+        odds = 0
+        nans = 0
+        problems = 0
+        num_samples = 4
+        samples = 0
+        output_file.pixels = []
+        visualize_dict = {}
+        for i, pixel in enumerate(input_file.pixels):
+            unique = np.unique(pixel[pixel!=0])
+            x = (i % input_file.ndx) + input_file.nx
+            y = (i // input_file.ndx) + input_file.ny
+            key = f"{x}, {y}"
+            visualize_dict[key] = []
+            if unique.any() and len(unique)%2 == 0:
+                first_surface = unique[0]
+                fornt_bbox_z = input_file.dz
+                back_bbox_z = input_file.dz2
+                rd = first_surface - fornt_bbox_z
+                for j, point_z in enumerate(unique):
+                    pixel = [rd]
+                    if j%2 == 1:
+                        sampled_points, problem = sample_points(unique[j-1], point_z, num_samples)
+                        dd = sampled_points - rd - fornt_bbox_z
+                        sdf = find_sdf(input_file, pcd, dd, first_surface, i)
+                        for d, s in zip(dd, sdf):
+                            output_file.pixels.append(np.array([rd, d, s]))
+                            visualize_dict[key].append([rd, d, s])
+                        problems += problem
+                        samples += sampled_points.shape[0]
+                    elif j > 0:
+                        sampled_points, problem = sample_points(unique[j-1], point_z, num_samples)
+                        dd = sampled_points - rd - fornt_bbox_z
+                        sdf = np.zeros(dd.shape)
+                        for d, s in zip(dd, sdf):
+                            output_file.pixels.append(np.array([rd, d, s])) 
+                            visualize_dict[key].append([rd, d, s])
+                        problems += problem
+                        samples += sampled_points.shape[0]
+
+                    if point_z == unique[-1]:
                         pixel = [rd]
-                        if j%2 == 1:
-                            sampled_points, problem = sample_points(unique[j-1], point_z, num_samples)
-                            dd = sampled_points - rd - fornt_bbox_z
-                            sdf = np.zeros(dd.shape)
-                            for d, s in zip(dd, sdf):
-                                output_file.pixels.append(np.array([rd, d, s]))
-                                visualize_dict[key].append([rd, d, s])
-                            problems += problem
-                            samples += sampled_points.shape[0]
-                        elif j > 0:
-                            sampled_points, problem = sample_points(unique[j-1], point_z, num_samples)
-                            dd = sampled_points - rd - fornt_bbox_z
-                            sdf = find_sdf(input_file, pcd, dd, first_surface, i)
-                            for d, s in zip(dd, sdf):
-                                output_file.pixels.append(np.array([rd, d, s])) 
-                                visualize_dict[key].append([rd, d, s])
-                            problems += problem
-                            samples += sampled_points.shape[0]
+                        # sampled_point = random.uniform(point_z, back_bbox_z)
+                        sampled_points, problem = sample_points(point_z, back_bbox_z, num_samples)
+                        dd = sampled_points - rd - fornt_bbox_z
+                        sdf = np.zeros(dd.shape)
+                        for d, s in zip(dd, sdf):
+                            output_file.pixels.append(np.array([rd, d, s]))
+                            visualize_dict[key].append([rd, d, s])
+                        problems += problem
+                        samples += sampled_points.shape[0]
 
-                        if point_z == unique[-1]:
-                            pixel = [rd]
-                            # sampled_point = random.uniform(point_z, back_bbox_z)
-                            sampled_points, problem = sample_points(point_z, back_bbox_z, num_samples)
-                            dd = sampled_points - rd - fornt_bbox_z
-                            sdf = find_sdf(input_file, pcd, dd, first_surface, i)
-                            for d, s in zip(dd, sdf):
-                                output_file.pixels.append(np.array([rd, d, s]))
-                                visualize_dict[key].append([rd, d, s])
-                            problems += problem
-                            samples += sampled_points.shape[0]
+            elif unique.any() and len(unique)%2 == 1:
+                output_file.pixels.append(np.array([np.nan]))
+                visualize_dict[key].append([np.nan])
+                odds+=1
+            else:
+                output_file.pixels.append(np.array([np.nan]))
+                visualize_dict[key].append([np.nan])
+                nans+=1
+        output_file.save(visualize_dict)
+        print("Odds:", odds)
+        print("Total:", len(output_file.pixels))
+        print("Ratio:", format(odds/len(output_file.pixels), ".00%"))
 
-                elif unique.any() and len(unique)%2 == 1:
-                    output_file.pixels.append(np.array([np.nan]))
-                    visualize_dict[key].append([np.nan])
-                    odds+=1
-                else:
-                    output_file.pixels.append(np.array([np.nan]))
-                    visualize_dict[key].append([np.nan])
-                    nans+=1
-            output_file.save(visualize_dict)
-            print("Odds:", odds)
-            print("Total:", len(output_file.pixels))
-            print("Ratio:", format(odds/len(output_file.pixels), ".00%"))
+        print("\nNans:", nans)
+        print("Total:", len(output_file.pixels))
+        print("Ratio:", format(nans/len(output_file.pixels), ".00%"), "\n")
+        print("PROBLEMS", problems)
+        print("Samples", samples)
+        print("--------------------------------------")
 
-            print("\nNans:", nans)
-            print("Total:", len(output_file.pixels))
-            print("Ratio:", format(nans/len(output_file.pixels), ".00%"), "\n")
-            print("PROBLEMS", problems)
-            print("Samples", samples)
-            print("--------------------------------------")
-            depth_image = []
-            for key, value in visualize_dict.items():
-                pixel = []
-                for row in value:
-                    x = key[0]
-                    y = key[1]
-                    if np.any(np.isnan(row)):
-                        # pixel.append(np.array([x, y, np.nan, np.nan]))
-                        break
-                    else:
-                        z = row[0] + row[1] + input_file.dz
-                        sdf = row[2]
-                        depth_image.append(np.array([x, y, z, sdf]))
-
-            image = np.vstack(depth_image)  # tu jest coś zjebane
-            print(np.min(image, axis=0), np.max(image, axis=0), image.shape)
-            
-            z = np.array(image[:, 2])
-            x = (input_file.cx - image[:, 0]) * z / input_file.f  # y on image is x in real world
-            y = (input_file.cy - image[:, 1]) * z / input_file.f  # x on image is y in real world
-
-            points = np.column_stack((x, y, z))
-
-            pcd = o3d.geometry.PointCloud()  # create point cloud object
-            pcd.points = o3d.utility.Vector3dVector(points)  # set pcd_np as the point cloud points
-            origin = o3d.geometry.TriangleMesh.create_coordinate_frame(size=0.1)
-            o3d.visualization.draw_geometries([pcd, origin])
-            # o3d.io.write_point_cloud(f'dataset_YCB_train/DepthDeepSDF/input_training_data_u_dist/untitled_{a}_{b}.pcd', pcd)
-
-            exit(777)

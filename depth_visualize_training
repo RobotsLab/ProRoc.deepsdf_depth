@@ -3,10 +3,12 @@ import open3d as o3d
 import matplotlib.pyplot as plt
 import copy
 import random
+import json
 
 from depth.utils import *
 from depth.camera import Camera
 from depth_image_generator import File as DepthFile
+from sklearn.preprocessing import StandardScaler
 
 class File():
     def __init__(self, source_path, destination_dir):
@@ -87,120 +89,82 @@ def load_depth_file(input_file):
 
 
 if __name__ == '__main__':
-    SOURCE_PATH = f'dataset_YCB_train/DepthDeepSDF/files/untitled_1_0.txt'
-    INPUT_PATH = 'dataset_YCB_train/DepthDeepSDF/input_training_data_u_dist/untitled_1_0_inp.txt'
+    for b in range(5):
+        SOURCE_PATH = f'dataset_YCB_train/DepthDeepSDF/files/untitled_1_{b}.txt'
+        INPUT_PATH = f'dataset_YCB_train/DepthDeepSDF/input_training_data_u_dist/untitled_1_{b}_inp.json'
 
-    data_file = DepthFile(SOURCE_PATH)
-    load_depth_file(data_file)
+        data_file = DepthFile(SOURCE_PATH)
+        load_depth_file(data_file)
 
-    input_file = []
-    with open(INPUT_PATH, 'r') as f:
-        input_file = f.readlines()
-    input_pixels_list = [np.array(pixel.split(), dtype=np.float32) for pixel in input_file]
+        input_file = []
+        with open(INPUT_PATH, 'r') as f:
+            input_file = json.load(f)
 
-    max_dim = max(arr.shape[0] for arr in input_pixels_list)
-    padded_arrays = [np.pad(arr, [(0, max_dim - arr.shape[0])], constant_values=np.nan) for arr in input_pixels_list]
-    input_pixels_array = np.vstack(padded_arrays)
-    print(type(input_pixels_array), len(input_pixels_array), input_pixels_array.shape)
-
-    visualize_dict = {}
-    sampled_points = 4
-    itr = 0
-    pixel_index = 0
-    fails = 0
-    zeros = 0
-    non_nan = 0
-    while itr < len(input_pixels_array):
-        if np.all(np.isnan(input_pixels_array[itr])):
-            visualize_dict[pixel_index] = input_pixels_array[itr]
-            itr += 1
-            zeros += 1
-
-        else:
-            points = []
-            sdf_sign = input_pixels_array[itr][-1]
-            for j in range(sampled_points):
-                point = input_pixels_array[itr]
-                if (sdf_sign != 0 and point[-1] != 0) or (sdf_sign == 0 and point[-1] == 0):
-                    points.append(point)
-                    itr += 1
-                else:
-                    # print(itr, input_pixels_array[itr], j, point)
-                    fails += 1
+        depth_image = []
+        for key, value in input_file.items():
+            pixel = []
+            for row in value:
+                x, y = map(int, key.split(', '))
+                if np.any(np.isnan(row)):
                     break
-            non_nan += 1
-            visualize_dict[pixel_index] = np.array(points)
-        pixel_index += 1
-    print(max(visualize_dict.keys()))
-    print(zeros, non_nan)
+                else:
+                    z = row[0] + row[1] + data_file.dz
+                    sdf = row[2]
+                    depth_image.append(np.array([x, y, z, sdf]))
+
+        image = np.vstack(depth_image)  # tu jest coś zjebane
+        print(np.min(image, axis=0), np.max(image, axis=0))
+        
+        z = np.array(image[:, 2])
+        x = (data_file.cx - image[:, 0]) * z / data_file.f  # y on image is x in real world
+        y = (data_file.cy - image[:, 1]) * z / data_file.f  # x on image is y in real world
+
+        points = np.column_stack((x, y, z))
+
+        pcd = o3d.geometry.PointCloud()  # create point cloud object
+        pcd.points = o3d.utility.Vector3dVector(points)  # set pcd_np as the point cloud points
+
+        # Set the colors based on values
+        sdf_array = image[:, 3]
+        min_sdf = np.min(sdf_array)
+        mean_sdf = np.mean(sdf_array)
+        max_sdf = np.max(sdf_array)
+        normalized_sdf_array = (sdf_array - min_sdf) / (max_sdf - min_sdf)
+
+        color_array = np.zeros((len(normalized_sdf_array), 3))
+
+        zero_sdf_array = np.zeros(normalized_sdf_array.shape)
+        zero_sdf_array[normalized_sdf_array == 0.0] = 1
+        zero_sdf_array[normalized_sdf_array != 0.0] = 0
+        color_array[:, 2] = zero_sdf_array
 
 
-    # print(fails)
-    exit(777)
-    # samples = 0
-    # while itr < len(input_pixels_array):
-    #     if np.all(np.isnan(input_pixels_array[itr])):
-    #         visualize_dict[itr] = input_pixels_array[itr]
-    #         itr+=1
-    #     else:
-    #         points = []
-    #         for i in range(sampled_points):
-    #             points.append(input_pixels_array[itr+i])
-    #             samples += 1
-    #         visualize_dict[itr] = np.array(points)
-    #         itr+=sampled_points
+        positive_sdf_array = np.zeros(normalized_sdf_array.shape)
+        positive_sdf_array = normalized_sdf_array
 
-    # print(samples)
-    depth_image = []
-    for key, value in visualize_dict.items():
-        pixel = []
-        for row in value:
-            x = (key % data_file.ndx) + data_file.nx
-            y = (key // data_file.ndx) + data_file.ny
-            if np.any(np.isnan(row)):
-                # pixel.append(np.array([x, y, np.nan, np.nan]))
-                break
-            else:
-                z = row[0] + row[1] + data_file.dz
-                sdf = row[2]
-                depth_image.append(np.array([x, y, z, sdf]))
+        color_array[:, 0] = normalized_sdf_array
 
-    image = np.vstack(depth_image)  # tu jest coś zjebane
-    print(np.min(image, axis=0), np.max(image, axis=0))
-    
-    z = np.array(image[:, 2])
-    x = (data_file.cx - image[:, 0]) * z / data_file.f  # y on image is x in real world
-    y = (data_file.cy - image[:, 1]) * z / data_file.f  # x on image is y in real world
+        # _ = plt.hist(normalized_sdf_array, bins='auto')  # arguments are passed to np.histogram
 
-    points = np.column_stack((x, y, z))
+        # plt.title("Histogram with 'auto' bins")
+        # plt.show()
 
-    pcd = o3d.geometry.PointCloud()  # create point cloud object
-    pcd.points = o3d.utility.Vector3dVector(points)  # set pcd_np as the point cloud points
 
-    # Set the colors based on values
-    sdf_array = image[:, 3]
-    min_sdf = np.min(sdf_array)
-    mean_sdf = np.mean(sdf_array)
-    max_sdf = np.max(sdf_array)
-    normalized_sdf_array = (sdf_array - min_sdf) / (max_sdf - min_sdf)
+        pcd.colors = o3d.utility.Vector3dVector(color_array)
 
-    color_array = np.zeros((len(normalized_sdf_array), 3))
-    color_array[:, 0] = normalized_sdf_array
+        origin = o3d.geometry.TriangleMesh.create_coordinate_frame(size=1)
+        o3d.visualization.draw_geometries([pcd, origin])
+        o3d.io.write_point_cloud(f'dataset_YCB_train/DepthDeepSDF/input_training_data_u_dist/untitled_1_{b}_inp.pcd', pcd)
+        
+        
+        
+        
+        
+        
+        
+        #nasycenie nieliniowe kolorów do wizualizacji
+        # dane do json
+        # odwrócić wartości sdf - na zewnątrz 0 wewnątrz dodatnie wartości
+        # ASAP wysłać dane
+        # badanie na 1 obiekcie, 50 widoków
 
-    zero_sdf_array = np.zeros(normalized_sdf_array.shape)
-    zero_sdf_array[normalized_sdf_array <= 0.0001] = 1
-    zero_sdf_array[normalized_sdf_array >= 0.0001] = 0
-    color_array[:, 1] = zero_sdf_array
-
-    color_array[:, 2] = normalized_sdf_array
-
-    pcd.colors = o3d.utility.Vector3dVector(color_array)
-
-    origin = o3d.geometry.TriangleMesh.create_coordinate_frame(size=1)
-    o3d.visualization.draw_geometries([pcd, origin])
-    # o3d.io.write_point_cloud('examples/depth/Reconstructions/1000/Meshes/dataset_YCB_test/mug_depth/untitled_1_0_inp_test.pcd', pcd)
-    #nasycenie nieliniowe kolorów do wizualizacji
-    # dane do json
-    # odwrócić wartości sdf - na zewnątrz 0 wewnątrz dodatnie wartości
-    # ASAP wysłać dane
-    # badanie na 1 obiekcie, 50 widoków
