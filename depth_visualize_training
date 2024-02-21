@@ -108,10 +108,13 @@ if __name__ == '__main__':
     itr = 0
     pixel_index = 0
     fails = 0
+    zeros = 0
+    non_nan = 0
     while itr < len(input_pixels_array):
         if np.all(np.isnan(input_pixels_array[itr])):
             visualize_dict[pixel_index] = input_pixels_array[itr]
             itr += 1
+            zeros += 1
 
         else:
             points = []
@@ -125,11 +128,15 @@ if __name__ == '__main__':
                     # print(itr, input_pixels_array[itr], j, point)
                     fails += 1
                     break
+            non_nan += 1
             visualize_dict[pixel_index] = np.array(points)
         pixel_index += 1
-    # print(visualize_dict)
+    print(max(visualize_dict.keys()))
+    print(zeros, non_nan)
+
+
     # print(fails)
-    # exit(777)
+    exit(777)
     # samples = 0
     # while itr < len(input_pixels_array):
     #     if np.all(np.isnan(input_pixels_array[itr])):
@@ -149,7 +156,7 @@ if __name__ == '__main__':
         pixel = []
         for row in value:
             x = (key % data_file.ndx) + data_file.nx
-            y = (key // data_file.ndy) + data_file.ny
+            y = (key // data_file.ndx) + data_file.ny
             if np.any(np.isnan(row)):
                 # pixel.append(np.array([x, y, np.nan, np.nan]))
                 break
