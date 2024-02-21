@@ -3,6 +3,7 @@ import open3d as o3d
 import matplotlib.pyplot as plt
 import copy
 import random
+import json
 
 from depth.utils import *
 from depth.camera import Camera
@@ -50,14 +51,16 @@ class File():
         self.dz = dz
         self.dz2 = dz2
 
-    def save(self):
-        with open(os.path.join(self.destination_dir, self.name + '_inp' +'.txt'), 'w') as f:
-            for pixel in self.pixels:
-                f.write(f"{' '.join(map(str, pixel))}\n")
-        print("Saved:", os.path.join(self.destination_dir, self.name + '_inp' +'.txt'))
+    def save(self, dictionary):
+        # with open(os.path.join(self.destination_dir, self.name + '_inp' +'.txt'), 'w') as f:
+        #     for pixel in self.pixels:
+        #         f.write(f"{' '.join(map(str, pixel))}\n")
                 # print(pixel)
                 # for p in pixel:
                     # print(p)
+        with open(os.path.join(self.destination_dir, self.name + '_inp' +'.json'), "w") as outfile:
+            json.dump(dictionary, outfile)
+        print("Saved:", os.path.join(self.destination_dir, self.name + '_inp' +'.json'))
 
 
 def load_depth_file(input_file):
@@ -86,8 +89,8 @@ def generate_pcd(input_file):
         img[input_file.ny:input_file.ny+input_file.ndy,input_file.nx:input_file.nx+input_file.ndx] = pixels[:, :, image]
         roi_y, roi_x = np.where(img!=0)
 
-        plt.imshow(img, cmap='gray')
-        plt.show()
+        # plt.imshow(img, cmap='gray')
+        # plt.show()
 
         z = np.array(img[img!=0])
         x = (input_file.cx - roi_x) * z / input_file.f  # y on image is x in real world
@@ -165,8 +168,13 @@ if __name__ == '__main__':
             num_samples = 4
             samples = 0
             output_file.pixels = []
+            visualize_dict = {}
             for i, pixel in enumerate(input_file.pixels):
                 unique = np.unique(pixel[pixel!=0])
+                x = (i % input_file.ndx) + input_file.nx
+                y = (i // input_file.ndx) + input_file.ny
+                key = f"{x}, {y}"
+                visualize_dict[key] = []
                 if unique.any() and len(unique)%2 == 0:
                     first_surface = unique[0]
                     fornt_bbox_z = input_file.dz
@@ -180,6 +188,7 @@ if __name__ == '__main__':
                             sdf = np.zeros(dd.shape)
                             for d, s in zip(dd, sdf):
                                 output_file.pixels.append(np.array([rd, d, s]))
+                                visualize_dict[key].append([rd, d, s])
                             problems += problem
                             samples += sampled_points.shape[0]
                         elif j > 0:
@@ -187,7 +196,8 @@ if __name__ == '__main__':
                             dd = sampled_points - rd - fornt_bbox_z
                             sdf = find_sdf(input_file, pcd, dd, first_surface, i)
                             for d, s in zip(dd, sdf):
-                                output_file.pixels.append(np.array([rd, d, s]))    
+                                output_file.pixels.append(np.array([rd, d, s])) 
+                                visualize_dict[key].append([rd, d, s])
                             problems += problem
                             samples += sampled_points.shape[0]
 
@@ -199,16 +209,19 @@ if __name__ == '__main__':
                             sdf = find_sdf(input_file, pcd, dd, first_surface, i)
                             for d, s in zip(dd, sdf):
                                 output_file.pixels.append(np.array([rd, d, s]))
+                                visualize_dict[key].append([rd, d, s])
                             problems += problem
                             samples += sampled_points.shape[0]
 
                 elif unique.any() and len(unique)%2 == 1:
                     output_file.pixels.append(np.array([np.nan]))
+                    visualize_dict[key].append([np.nan])
                     odds+=1
                 else:
                     output_file.pixels.append(np.array([np.nan]))
+                    visualize_dict[key].append([np.nan])
                     nans+=1
-            # output_file.save()
+            output_file.save(visualize_dict)
             print("Odds:", odds)
             print("Total:", len(output_file.pixels))
             print("Ratio:", format(odds/len(output_file.pixels), ".00%"))
@@ -219,4 +232,33 @@ if __name__ == '__main__':
             print("PROBLEMS", problems)
             print("Samples", samples)
             print("--------------------------------------")
+            depth_image = []
+            for key, value in visualize_dict.items():
+                pixel = []
+                for row in value:
+                    x = key[0]
+                    y = key[1]
+                    if np.any(np.isnan(row)):
+                        # pixel.append(np.array([x, y, np.nan, np.nan]))
+                        break
+                    else:
+                        z = row[0] + row[1] + input_file.dz
+                        sdf = row[2]
+                        depth_image.append(np.array([x, y, z, sdf]))
+
+            image = np.vstack(depth_image)  # tu jest coś zjebane
+            print(np.min(image, axis=0), np.max(image, axis=0), image.shape)
+            
+            z = np.array(image[:, 2])
+            x = (input_file.cx - image[:, 0]) * z / input_file.f  # y on image is x in real world
+            y = (input_file.cy - image[:, 1]) * z / input_file.f  # x on image is y in real world
+
+            points = np.column_stack((x, y, z))
+
+            pcd = o3d.geometry.PointCloud()  # create point cloud object
+            pcd.points = o3d.utility.Vector3dVector(points)  # set pcd_np as the point cloud points
+            origin = o3d.geometry.TriangleMesh.create_coordinate_frame(size=0.1)
+            o3d.visualization.draw_geometries([pcd, origin])
+            # o3d.io.write_point_cloud(f'dataset_YCB_train/DepthDeepSDF/input_training_data_u_dist/untitled_{a}_{b}.pcd', pcd)
+
             exit(777)
