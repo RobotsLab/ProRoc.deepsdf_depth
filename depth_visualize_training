@@ -114,7 +114,6 @@ if __name__ == '__main__':
 
         image = np.vstack(depth_image)  # tu jest coś zjebane
         print(np.min(image, axis=0), np.max(image, axis=0))
-        
         z = np.array(image[:, 2])
         x = (data_file.cx - image[:, 0]) * z / data_file.f  # y on image is x in real world
         y = (data_file.cy - image[:, 1]) * z / data_file.f  # x on image is y in real world
@@ -126,6 +125,7 @@ if __name__ == '__main__':
 
         # Set the colors based on values
         sdf_array = image[:, 3]
+
         min_sdf = np.min(sdf_array)
         mean_sdf = np.mean(sdf_array)
         max_sdf = np.max(sdf_array)
@@ -154,8 +154,8 @@ if __name__ == '__main__':
 
         origin = o3d.geometry.TriangleMesh.create_coordinate_frame(size=1)
         o3d.visualization.draw_geometries([pcd, origin])
-        o3d.io.write_point_cloud(f'dataset_YCB_train/DepthDeepSDF/input_training_data_u_dist/untitled_1_{b}_inp.pcd', pcd)
-        
+        # o3d.io.write_point_cloud(f'dataset_YCB_train/DepthDeepSDF/input_training_data_u_dist/untitled_1_{b}_inp.pcd', pcd)
+        exit(777)
         
         
         

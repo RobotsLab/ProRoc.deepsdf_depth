@@ -138,14 +138,15 @@ def find_sdf(input_file, pcd, points, first_surface, index):
 
 def sample_points(start, stop, num_samples):
     problems = 0
-    mu = (stop + start) / 2
-    sigma = (stop - start) / 6
-    samples_gauss_dist = np.random.normal(mu, sigma, num_samples)
-    samples_near_surf = u_distribution(samples_gauss_dist, mu, sigma)
-    # samples_near_surf = samples_near_surf[(samples_near_surf >= start) & (samples_near_surf <= stop)]
-    if np.all(samples_near_surf == samples_near_surf[0]):
-        samples_near_surf = np.array([mu-2*sigma, mu-sigma, mu+sigma, mu+2*sigma])
-        problems += 1
+    # mu = (stop + start) / 2
+    # sigma = (stop - start) / 6
+    # samples_gauss_dist = np.random.normal(mu, sigma, num_samples)
+    # samples_near_surf = u_distribution(samples_gauss_dist, mu, sigma)
+    # # samples_near_surf = samples_near_surf[(samples_near_surf >= start) & (samples_near_surf <= stop)]
+    # if np.all(samples_near_surf == samples_near_surf[0]):
+    #     samples_near_surf = np.array([mu-2*sigma, mu-sigma, mu+sigma, mu+2*sigma])
+    #     problems += 1
+    samples_near_surf = np.linspace(start, stop, num_samples)
     return samples_near_surf, problems
 
 #6512 6628 1_0
@@ -163,7 +164,7 @@ if __name__ == '__main__':
         odds = 0
         nans = 0
         problems = 0
-        num_samples = 4
+        num_samples = 10
         samples = 0
         output_file.pixels = []
         visualize_dict = {}
@@ -199,17 +200,17 @@ if __name__ == '__main__':
                         problems += problem
                         samples += sampled_points.shape[0]
 
-                    if point_z == unique[-1]:
-                        pixel = [rd]
-                        # sampled_point = random.uniform(point_z, back_bbox_z)
-                        sampled_points, problem = sample_points(point_z, back_bbox_z, num_samples)
-                        dd = sampled_points - rd - fornt_bbox_z
-                        sdf = np.zeros(dd.shape)
-                        for d, s in zip(dd, sdf):
-                            output_file.pixels.append(np.array([rd, d, s]))
-                            visualize_dict[key].append([rd, d, s])
-                        problems += problem
-                        samples += sampled_points.shape[0]
+                    # if point_z == unique[-1]:
+                    #     pixel = [rd]
+                    #     # sampled_point = random.uniform(point_z, back_bbox_z)
+                    #     sampled_points, problem = sample_points(point_z, back_bbox_z, num_samples)
+                    #     dd = sampled_points - rd - fornt_bbox_z
+                    #     sdf = np.zeros(dd.shape)
+                    #     for d, s in zip(dd, sdf):
+                    #         output_file.pixels.append(np.array([rd, d, s]))
+                    #         visualize_dict[key].append([rd, d, s])
+                    #     problems += problem
+                    #     samples += sampled_points.shape[0]
 
             elif unique.any() and len(unique)%2 == 1:
                 output_file.pixels.append(np.array([np.nan]))
