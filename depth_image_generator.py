@@ -153,32 +153,48 @@ def load_generator_file(input_file):
         frames = file.readlines()
         input_file.frames = [np.array(frame.split(), dtype=np.float32) for frame in frames]
 
-def stack_images(file, input_mesh, camera):
+def find_angle(v1, v2):
+    c = np.dot(v1, v2)/(np.linalg.norm(v1)*np.linalg.norm(v2))
+    angle = np.rad2deg(np.arccos(np.clip(c, -1, 1)))
+    return angle
+
+def stack_images(file, input_mesh, camera, view):
     '''SOLVED
     Gdy któryś z promieni pierwszy dotknie następnego trójkąta, ten trójkąt nie zostanie zarejestrowany przez sąsiedni promień.
     Sprawdzić ile promieni przecina trójkąt do usunięcia, jeżeli po usunięciu liczba intersekcji spadnie dla 
     większej ilości promieni niż przewidziano to nie można usunąć tego mesha.
     '''
     mesh = copy.deepcopy(input_mesh)
+    mesh.compute_triangle_normals()
+    triangle_normals = np.asarray(mesh.triangle_normals)
+    
+
     scene_mesh = o3d.t.geometry.TriangleMesh.from_legacy(mesh)
     scene = o3d.t.geometry.RaycastingScene()
     scene.add_triangles(scene_mesh)
     sub_size = 175
 
     rays = camera.raycasting()
+    np_rays = rays.numpy()
 
     # Depth image.
     lx = scene.list_intersections(rays)
+    ans = scene.cast_rays(rays)
+
     t_hit = lx['t_hit'].numpy()
     ray_ids = lx['ray_ids'].numpy()
-
+    primitive_ids = lx['primitive_ids'].numpy()
+    normals = ans['primitive_normals'].numpy()
     unique_ray_ids, counts = np.unique(ray_ids, return_counts=True)
+
     # Create a dictionary to store distances for each ray
-    distances_dict = {ray_id: [] for ray_id in unique_ray_ids}
+    distances_dict = {ray_id: ([], [], []) for ray_id in unique_ray_ids}
 
     # Iterate through the data and store distances for each ray
-    for i in range(len(ray_ids)):
-        distances_dict[ray_ids[i]].append(t_hit[i])
+    for i, ray_id in enumerate(ray_ids):
+        distances_dict[ray_ids[i]][0].append(t_hit[i])
+        distances_dict[ray_ids[i]][1].append(ray_id)
+        distances_dict[ray_ids[i]][2].append(primitive_ids[i])
     
     depth_image = np.zeros((file.Ndy, file.Ndx, np.max(counts)))
 
@@ -186,16 +202,37 @@ def stack_images(file, input_mesh, camera):
     min_x = file.Ndx
     max_y = 0
     max_x = 0
-
+    min_angle = 100
+    max_angle = 0
+    angles = 0
     for key in distances_dict.keys():
+        hits, ray_id, triangle_id = distances_dict[key]
         y = key // file.Ndx
         x = key % file.Ndx
-        depth_values = np.asarray(distances_dict[key])
-        depth_image[y, x, :depth_values.shape[0]] = depth_values
+        depth_values = np.asarray(hits)
+
+        for i in range(len(hits)):
+            ray_vector = np_rays[y, x, -3:]
+            normal_vector = triangle_normals[triangle_id[i]]
+            angle = find_angle(normal_vector, ray_vector)
+            min_angle = min(angle, min_angle)
+            max_angle = max(angle, max_angle)
+
+            if 90-view <= angle <= 90+view:
+                # print(x, y, ray_vector, normal_vector, hits[i], normals[y, x])
+                # print(angle)
+                angles+=1
+            else:
+                depth_image[y, x, i] = hits[i]
+
+
         min_y = min(min_y, y)
         min_x = min(min_x, x)
         max_y = max(max_y, y)
         max_x = max(max_x, x)
+        # print(depth_image.shape)
+
+    print(f"Angle range from {90-view} to {90+view}\nSamples removed due to angle: {angles} Minimum angle: {min_angle} Maximum angle: {max_angle}")
 
     min_z = np.min(depth_image[depth_image!=0])
     max_z = np.max(depth_image[depth_image!=0])
@@ -208,8 +245,8 @@ def stack_images(file, input_mesh, camera):
     return depth_image[file.ny:file.ny+file.ndy, file.nx:file.nx+file.ndx, :]
 
 if __name__ == '__main__':
-    SOURCE_PATH = 'dataset_YCB_train/DepthDeepSDF/files/untitled_3.txt'
-    MESH_PATH = 'dataset_YCB_train/DepthDeepSDF/1c9f9e25c654cbca3c71bf3f4dd78475/models/untitled.ply'
+    SOURCE_PATH = 'dataset_YCB_train/DepthDeepSDF/files/untitled_1.txt'
+    MESH_PATH = 'dataset_YCB_train/DepthDeepSDF/1a1c0a8d4bad82169f0594e65f756cf5/models/untitled.ply'
     DESTINATION_PATH = 'dataset_YCB_train/DepthDeepSDF/files/'
 
     input_file = ViewsFile(SOURCE_PATH)
@@ -242,13 +279,13 @@ if __name__ == '__main__':
         img[img == np.inf] = 0
         img = img.astype(np.float32)
 
-        plt.imshow(img, cmap='gray')
-        plt.title('Pionhole camera image')
-        plt.show()
-        depth_image = stack_images(output_file, scaled_mesh, camera)
-        plt.imshow(depth_image[:,:,0], cmap='gray')
-        plt.title('Pionhole camera image')
-        plt.show()
+        # plt.imshow(img, cmap='gray')
+        # plt.title('Pionhole camera image')
+        # plt.show()
+        depth_image = stack_images(output_file, scaled_mesh, camera, view)
+        # plt.imshow(depth_image[:,:,0], cmap='gray')
+        # plt.title('Pionhole camera image')
+        # plt.show()
 
         scaled_mesh = translate(scaled_mesh, -frame[:3])
         scaled_mesh = rotate(scaled_mesh, -frame[3:])

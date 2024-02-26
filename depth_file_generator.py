@@ -120,7 +120,7 @@ def scale(mesh, scale_factor, scale_to_unit=False):
     return scaled_mesh, real_scale_factor
 
 if __name__ == '__main__':
-    SOURCE_PATH = 'dataset_YCB_train/DepthDeepSDF/1c9f9e25c654cbca3c71bf3f4dd78475/models/untitled.ply'
+    SOURCE_PATH = 'dataset_YCB_train/DepthDeepSDF/1a1c0a8d4bad82169f0594e65f756cf5/models/untitled.ply'
     DESTINATION_PATH = 'dataset_YCB_train/DepthDeepSDF/files'
 
     generated_file = File(SOURCE_PATH, DESTINATION_PATH)
@@ -134,14 +134,11 @@ if __name__ == '__main__':
     scale_factor = 0.2
     scaled_mesh, generated_file.scale = scale(centered_mesh, scale_factor, True)
 
-    #[0.,0.,0.,0,0,0-360]
-    translations_and_rotations = [
-        np.array([0.,0.,0.,0,0,60]),
-        np.array([0.,0.,0.,0,0,120]),
-        np.array([0.,0.,0.,0,0,180]),
-        np.array([0.,0.,0.,0,0,240]),
-        np.array([0.,0.,0.,0,0,300])
-    ]
+    translations_and_rotations = []
+
+    for i in range(50):
+        translations_and_rotations.append(np.array([0.,0.,0.,0,0,i]))
+
 
     for i in translations_and_rotations:
         scaled_mesh = translate(scaled_mesh, i[:3])

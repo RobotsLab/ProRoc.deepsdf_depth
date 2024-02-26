@@ -112,7 +112,8 @@ if __name__ == '__main__':
                     sdf = row[2]
                     depth_image.append(np.array([x, y, z, sdf]))
 
-        image = np.vstack(depth_image)  # tu jest coś zjebane
+        image = np.vstack(depth_image)
+        image = image[image[:, 3] >= 0.007]
         print(np.min(image, axis=0), np.max(image, axis=0))
         z = np.array(image[:, 2])
         x = (data_file.cx - image[:, 0]) * z / data_file.f  # y on image is x in real world
