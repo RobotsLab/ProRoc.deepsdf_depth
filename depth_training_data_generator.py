@@ -103,7 +103,7 @@ def generate_pcd(input_file):
     pcd = o3d.geometry.PointCloud()  # create point cloud object
     pcd.points = o3d.utility.Vector3dVector(points)  # set pcd_np as the point cloud points
 
-    origin = o3d.geometry.TriangleMesh.create_coordinate_frame(size=0.1)
+    # origin = o3d.geometry.TriangleMesh.create_coordinate_frame(size=0.1)
     # o3d.visualization.draw_geometries([pcd, origin])
     
     return pcd
@@ -153,7 +153,7 @@ def sample_points(start, stop, num_samples):
 if __name__ == '__main__':
     for b in range(5):
         SOURCE_PATH = f'dataset_YCB_train/DepthDeepSDF/files/untitled_1_{b}.txt'
-        DESTINATION_PATH = 'dataset_YCB_train/DepthDeepSDF/input_training_data_u_dist'
+        DESTINATION_PATH = 'dataset_YCB_train/DepthDeepSDF/files'
 
         input_file = DepthFile(SOURCE_PATH)
         load_depth_file(input_file)
@@ -164,7 +164,7 @@ if __name__ == '__main__':
         odds = 0
         nans = 0
         problems = 0
-        num_samples = 10
+        num_samples = 4
         samples = 0
         output_file.pixels = []
         visualize_dict = {}

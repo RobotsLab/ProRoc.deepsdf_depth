@@ -91,7 +91,7 @@ def load_depth_file(input_file):
 if __name__ == '__main__':
     for b in range(5):
         SOURCE_PATH = f'dataset_YCB_train/DepthDeepSDF/files/untitled_1_{b}.txt'
-        INPUT_PATH = f'dataset_YCB_train/DepthDeepSDF/input_training_data_u_dist/untitled_1_{b}_inp.json'
+        INPUT_PATH = f'dataset_YCB_train/DepthDeepSDF/files/untitled_1_{b}_inp.json'
 
         data_file = DepthFile(SOURCE_PATH)
         load_depth_file(data_file)
@@ -113,7 +113,6 @@ if __name__ == '__main__':
                     depth_image.append(np.array([x, y, z, sdf]))
 
         image = np.vstack(depth_image)
-        image = image[image[:, 3] >= 0.007]
         print(np.min(image, axis=0), np.max(image, axis=0))
         z = np.array(image[:, 2])
         x = (data_file.cx - image[:, 0]) * z / data_file.f  # y on image is x in real world
@@ -126,24 +125,26 @@ if __name__ == '__main__':
 
         # Set the colors based on values
         sdf_array = image[:, 3]
+        color_array = np.zeros((len(sdf_array), 3))
 
         min_sdf = np.min(sdf_array)
         mean_sdf = np.mean(sdf_array)
         max_sdf = np.max(sdf_array)
         normalized_sdf_array = (sdf_array - min_sdf) / (max_sdf - min_sdf)
 
-        color_array = np.zeros((len(normalized_sdf_array), 3))
-
-        zero_sdf_array = np.zeros(normalized_sdf_array.shape)
-        zero_sdf_array[normalized_sdf_array == 0.0] = 1
-        zero_sdf_array[normalized_sdf_array != 0.0] = 0
-        color_array[:, 2] = zero_sdf_array
-
-
-        positive_sdf_array = np.zeros(normalized_sdf_array.shape)
-        positive_sdf_array = normalized_sdf_array
-
-        color_array[:, 0] = normalized_sdf_array
+        for i, row in enumerate(sdf_array):
+            if i%4 == 0:
+                color_array[i, 0] = 1
+                print(1, i, row, color_array[i, 0])
+            elif row == 0:
+                color_array[i, 2] = 1
+                print(2, i, row, color_array[i, 2])
+            else:
+                if row >= 0.01:
+                    color_array[i, 2] = 0
+                else:
+                    color_array[i, 2] = 1 - normalized_sdf_array[i]
+                print(3, i, row, normalized_sdf_array[i], color_array[i, 0])
 
         # _ = plt.hist(normalized_sdf_array, bins='auto')  # arguments are passed to np.histogram
 
@@ -153,10 +154,9 @@ if __name__ == '__main__':
 
         pcd.colors = o3d.utility.Vector3dVector(color_array)
 
-        origin = o3d.geometry.TriangleMesh.create_coordinate_frame(size=1)
-        o3d.visualization.draw_geometries([pcd, origin])
-        # o3d.io.write_point_cloud(f'dataset_YCB_train/DepthDeepSDF/input_training_data_u_dist/untitled_1_{b}_inp.pcd', pcd)
-        exit(777)
+        origin = o3d.geometry.TriangleMesh.create_coordinate_frame(size=0.1)
+        # o3d.visualization.draw_geometries([pcd, origin])
+        o3d.io.write_point_cloud(f'dataset_YCB_train/DepthDeepSDF/files/untitled_1_{b}_inp.pcd', pcd)
         
         
         
@@ -168,4 +168,3 @@ if __name__ == '__main__':
         # odwrócić wartości sdf - na zewnątrz 0 wewnątrz dodatnie wartości
         # ASAP wysłać dane
         # badanie na 1 obiekcie, 50 widoków
-
