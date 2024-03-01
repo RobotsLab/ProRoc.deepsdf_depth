@@ -164,10 +164,13 @@ if __name__ == '__main__':
         odds = 0
         nans = 0
         problems = 0
-        num_samples = 2
+        num_samples = 20
         samples = 0
         output_file.pixels = []
         visualize_dict = {}
+        fornt_bbox_z = input_file.dz + 0.05
+        back_bbox_z = input_file.dz2 - 0.1
+        print(len(input_file.pixels))
         for i, pixel in enumerate(input_file.pixels):
             unique = np.unique(pixel[pixel!=0])
             x = (i % input_file.ndx) + input_file.nx
@@ -176,42 +179,22 @@ if __name__ == '__main__':
             visualize_dict[key] = []
             if unique.any() and len(unique)%2 == 0:
                 first_surface = unique[0]
-                fornt_bbox_z = input_file.dz
-                back_bbox_z = input_file.dz2
                 rd = first_surface - fornt_bbox_z
-                for j, point_z in enumerate(unique):
-                    pixel = [rd]
-                    if j%2 == 1:
-                        sampled_points, problem = sample_points(unique[j-1], point_z, num_samples)
-                        dd = sampled_points - rd - fornt_bbox_z
-                        sdf = find_sdf(input_file, pcd, dd, first_surface, i)
-                        for d, s in zip(dd, sdf):
-                            output_file.pixels.append(np.array([rd, d, s]))
-                            visualize_dict[key].append([rd, d, s])
-                        problems += problem
-                        samples += sampled_points.shape[0]
-                    elif j > 0:
-                        sampled_points, problem = sample_points(unique[j-1], point_z, num_samples)
-                        dd = sampled_points - rd - fornt_bbox_z
-                        sdf = np.zeros(dd.shape)
-                        for d, s in zip(dd, sdf):
-                            output_file.pixels.append(np.array([rd, d, s])) 
-                            visualize_dict[key].append([rd, d, s])
-                        problems += problem
-                        samples += sampled_points.shape[0]
-
-                    # if point_z == unique[-1]:
-                    #     pixel = [rd]
-                    #     # sampled_point = random.uniform(point_z, back_bbox_z)
-                    #     sampled_points, problem = sample_points(point_z, back_bbox_z, num_samples)
-                    #     dd = sampled_points - rd - fornt_bbox_z
-                    #     sdf = np.zeros(dd.shape)
-                    #     for d, s in zip(dd, sdf):
-                    #         output_file.pixels.append(np.array([rd, d, s]))
-                    #         visualize_dict[key].append([rd, d, s])
-                    #     problems += problem
-                    #     samples += sampled_points.shape[0]
-
+                sampled_points = np.linspace(fornt_bbox_z, back_bbox_z, num_samples)
+                for sample in sampled_points:
+                    passed_surfaces = 0
+                    for j, point_z in enumerate(unique):
+                        if sample > point_z:
+                            passed_surfaces += 1
+                    if passed_surfaces % 2 == 0:
+                        sdf = 0
+                    elif len(unique)-1 > passed_surfaces:
+                        sdf = min(abs(sample - unique[passed_surfaces]), abs(sample - unique[passed_surfaces+1]))
+                    else:
+                        continue
+                    dd = sample - rd - fornt_bbox_z
+                    visualize_dict[key].append([rd, dd, sdf])
+                    samples += 1
             elif unique.any() and len(unique)%2 == 1:
                 output_file.pixels.append(np.array([np.nan]))
                 visualize_dict[key].append([np.nan])
@@ -220,15 +203,56 @@ if __name__ == '__main__':
                 output_file.pixels.append(np.array([np.nan]))
                 visualize_dict[key].append([np.nan])
                 nans+=1
+
         output_file.save(visualize_dict)
         print("Odds:", odds)
-        print("Total:", len(output_file.pixels))
-        print("Ratio:", format(odds/len(output_file.pixels), ".00%"))
+        print("Total:", len(visualize_dict))
+        print("Ratio:", format(odds/samples, ".00%"))
 
         print("\nNans:", nans)
-        print("Total:", len(output_file.pixels))
-        print("Ratio:", format(nans/len(output_file.pixels), ".00%"), "\n")
+        print("Total:", samples)
+        print("Ratio:", format(nans/samples, ".00%"), "\n")
         print("PROBLEMS", problems)
         print("Samples", samples)
         print("--------------------------------------")
+    
+        #                 pixel = [rd]
+        #                 if j%2 == 1:
+        #                     sampled_points, problem = sample_points(unique[j-1], point_z, num_samples)
+        #                     dd = sampled_points - rd - fornt_bbox_z
+        #                     sdf = find_sdf(input_file, pcd, dd, first_surface, i)
+        #                     for d, s in zip(dd, sdf):
+        #                         output_file.pixels.append(np.array([rd, d, s]))
+        #                         visualize_dict[key].append([rd, d, s])
+        #                     problems += problem
+        #                     samples += sampled_points.shape[0]
+        #                 elif j > 0:
+        #                     sampled_points, problem = sample_points(unique[j-1], point_z, num_samples)
+        #                     dd = sampled_points - rd - fornt_bbox_z
+        #                     sdf = np.zeros(dd.shape)
+        #                     for d, s in zip(dd, sdf):
+        #                         output_file.pixels.append(np.array([rd, d, s])) 
+        #                         visualize_dict[key].append([rd, d, s])
+        #                     problems += problem
+        #                     samples += sampled_points.shape[0]
+
+        #     elif unique.any() and len(unique)%2 == 1:
+        #         output_file.pixels.append(np.array([np.nan]))
+        #         visualize_dict[key].append([np.nan])
+        #         odds+=1
+        #     else:
+        #         output_file.pixels.append(np.array([np.nan]))
+        #         visualize_dict[key].append([np.nan])
+        #         nans+=1
+        # output_file.save(visualize_dict)
+        # print("Odds:", odds)
+        # print("Total:", len(output_file.pixels))
+        # print("Ratio:", format(odds/len(output_file.pixels), ".00%"))
+
+        # print("\nNans:", nans)
+        # print("Total:", len(output_file.pixels))
+        # print("Ratio:", format(nans/len(output_file.pixels), ".00%"), "\n")
+        # print("PROBLEMS", problems)
+        # print("Samples", samples)
+        # print("--------------------------------------")
 

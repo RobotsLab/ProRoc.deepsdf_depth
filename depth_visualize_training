@@ -107,14 +107,42 @@ def load_depth_file(input_file):
         pixels = file.readlines()
         input_file.pixels = [np.array(pixel.split(), dtype=np.float32) for pixel in pixels]
 
+def generate_input_pcd(input_file):
+    visible_depth_points = []
+
+    for i, pixel in enumerate(input_file.pixels):
+        unique = np.unique(pixel[pixel!=0])
+        x = (i % input_file.ndx) + input_file.nx
+        y = (i // input_file.ndx) + input_file.ny
+        if unique.any() and len(unique)%2 == 0:
+            z = unique[0]
+            visible_depth_points.append(np.array([x, y, z]))
+    depth_image = np.vstack(visible_depth_points)
+
+    z = depth_image[:, 2]
+    x = (input_file.cx - depth_image[:, 0]) * z / input_file.f  # y on image is x in real world
+    y = (input_file.cy - depth_image[:, 1]) * z / input_file.f  # x on image is y in real world
+
+    points = np.column_stack([x, y, z])
+    color_array = np.zeros(points.shape)
+    color_array[:, 0] = 1
+
+    pcd = o3d.geometry.PointCloud()  # create point cloud object
+    pcd.points = o3d.utility.Vector3dVector(points)  # set pcd_np as the point cloud points
+    pcd.colors = o3d.utility.Vector3dVector(color_array)
+
+    return pcd
+
 
 if __name__ == '__main__':
-    for b in range(5):
+    for b in range(4, 5):
         SOURCE_PATH = f'dataset_YCB_train/DepthDeepSDF/files/untitled_1_{b}.txt'
         INPUT_PATH = f'dataset_YCB_train/DepthDeepSDF/files/untitled_1_{b}_inp.json'
 
         data_file = DepthFile(SOURCE_PATH)
         load_depth_file(data_file)
+        
+        depth_pcd = generate_input_pcd(data_file)
 
         input_file = []
         with open(INPUT_PATH, 'r') as f:
@@ -128,27 +156,13 @@ if __name__ == '__main__':
                 x, y = map(int, key.split(', '))
                 if np.any(np.isnan(row)):
                     break
-                elif i == 0:
-                    z = row[0] + row[1] + data_file.dz
-                    sdf = row[2]
-                    depth_image.append(np.array([x, y, z, sdf]))
-                else:
-                    z = row[0] + row[1] + data_file.dz
-                    sdf = row[2]
-                    object_image.append(np.array([x, y, z, sdf]))
-
-        depth_points = PointsFromDepth(data_file, depth_image)
-        depth_pcd = depth_points.to_point_cloud()
-        depth_sdf_array = depth_points.image[:, 3]
+                z = row[0] + row[1] + data_file.dz
+                sdf = row[2]
+                object_image.append(np.array([x, y, z, sdf]))
 
         object_points = PointsFromDepth(data_file, object_image)
         object_pcd = object_points.to_point_cloud()
         object_sdf_array = object_points.image[:, 3]
-
-        # Set the colors based on values
-        depth_color_array = np.zeros((len(depth_sdf_array), 3))
-        depth_color_array[depth_sdf_array == 0, 0] = 1
-        depth_pcd.colors = o3d.utility.Vector3dVector(depth_color_array)
 
         object_color_array = np.zeros((len(object_sdf_array), 3))
 
@@ -157,19 +171,12 @@ if __name__ == '__main__':
         max_sdf = np.max(object_sdf_array)
         normalized_sdf_array = (object_sdf_array - min_sdf) / (max_sdf - min_sdf)
 
-        object_color_array[:, 2] = 1 #- normalized_sdf_array
+        object_color_array[:, 2] = 1 - normalized_sdf_array
         object_pcd.colors = o3d.utility.Vector3dVector(object_color_array)
 
-        color_array = np.concatenate((depth_color_array, object_color_array), axis=0)
-        points_array = np.concatenate((depth_points.points, object_points.points), axis=0)
-        pcd = o3d.geometry.PointCloud()  # create point cloud object
-        pcd.points = o3d.utility.Vector3dVector(points_array)  # set pcd_np as the point cloud points
-        pcd.colors = o3d.utility.Vector3dVector(color_array)
-
-
         origin = o3d.geometry.TriangleMesh.create_coordinate_frame(size=0.1)
-        o3d.visualization.draw_geometries([pcd, origin])
-        o3d.io.write_point_cloud(f'dataset_YCB_train/DepthDeepSDF/files/untitled_1_{b}_inp.pcd', pcd)
+        o3d.visualization.draw_geometries([depth_pcd, object_pcd, origin])
+        o3d.io.write_point_cloud(f'dataset_YCB_train/DepthDeepSDF/files/untitled_1_{b}_inp.pcd', object_pcd)
         
         
         
