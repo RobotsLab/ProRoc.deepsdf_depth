@@ -61,6 +61,26 @@ class File():
                 # for p in pixel:
                     # print(p)
 
+class PointsFromDepth:
+    def __init__(self, data_file, pixels) -> None:
+        self.cx = data_file.cx
+        self.cy = data_file.cy
+        self.f = data_file.f
+        self.image = np.vstack(pixels)
+
+    def to_point_cloud(self):
+        print(np.min(self.image, axis=0), np.max(self.image, axis=0))
+        z = np.array(self.image[:, 2])
+        x = (self.cx - self.image[:, 0]) * z / self.f  # y on image is x in real world
+        y = (self.cy - self.image[:, 1]) * z / self.f  # x on image is y in real world
+
+        self.points = np.column_stack((x, y, z))
+
+        pcd = o3d.geometry.PointCloud()  # create point cloud object
+        pcd.points = o3d.utility.Vector3dVector(self.points)  # set pcd_np as the point cloud points
+
+        return pcd
+
 def load_querry_points(path):
     if path.endswith(".npz"):
         dict_data = np.load(path)
@@ -100,68 +120,61 @@ if __name__ == '__main__':
         with open(INPUT_PATH, 'r') as f:
             input_file = json.load(f)
 
+        object_image = []
         depth_image = []
         for key, value in input_file.items():
             pixel = []
-            for row in value:
+            for i, row in enumerate(value):
                 x, y = map(int, key.split(', '))
                 if np.any(np.isnan(row)):
                     break
-                else:
+                elif i == 0:
                     z = row[0] + row[1] + data_file.dz
                     sdf = row[2]
                     depth_image.append(np.array([x, y, z, sdf]))
+                else:
+                    z = row[0] + row[1] + data_file.dz
+                    sdf = row[2]
+                    object_image.append(np.array([x, y, z, sdf]))
 
-        image = np.vstack(depth_image)
-        print(np.min(image, axis=0), np.max(image, axis=0))
-        z = np.array(image[:, 2])
-        x = (data_file.cx - image[:, 0]) * z / data_file.f  # y on image is x in real world
-        y = (data_file.cy - image[:, 1]) * z / data_file.f  # x on image is y in real world
+        depth_points = PointsFromDepth(data_file, depth_image)
+        depth_pcd = depth_points.to_point_cloud()
+        depth_sdf_array = depth_points.image[:, 3]
 
-        points = np.column_stack((x, y, z))
-
-        pcd = o3d.geometry.PointCloud()  # create point cloud object
-        pcd.points = o3d.utility.Vector3dVector(points)  # set pcd_np as the point cloud points
+        object_points = PointsFromDepth(data_file, object_image)
+        object_pcd = object_points.to_point_cloud()
+        object_sdf_array = object_points.image[:, 3]
 
         # Set the colors based on values
-        sdf_array = image[:, 3]
-        color_array = np.zeros((len(sdf_array), 3))
+        depth_color_array = np.zeros((len(depth_sdf_array), 3))
+        depth_color_array[depth_sdf_array == 0, 0] = 1
+        depth_pcd.colors = o3d.utility.Vector3dVector(depth_color_array)
 
-        min_sdf = np.min(sdf_array)
-        mean_sdf = np.mean(sdf_array)
-        max_sdf = np.max(sdf_array)
-        normalized_sdf_array = (sdf_array - min_sdf) / (max_sdf - min_sdf)
+        object_color_array = np.zeros((len(object_sdf_array), 3))
 
-        for i, row in enumerate(sdf_array):
-            if i%4 == 0:
-                color_array[i, 0] = 1
-                print(1, i, row, color_array[i, 0])
-            elif row == 0:
-                color_array[i, 2] = 1
-                print(2, i, row, color_array[i, 2])
-            else:
-                if row >= 0.01:
-                    color_array[i, 2] = 0
-                else:
-                    color_array[i, 2] = 1 - normalized_sdf_array[i]
-                print(3, i, row, normalized_sdf_array[i], color_array[i, 0])
+        min_sdf = np.min(object_sdf_array)
+        mean_sdf = np.mean(object_sdf_array)
+        max_sdf = np.max(object_sdf_array)
+        normalized_sdf_array = (object_sdf_array - min_sdf) / (max_sdf - min_sdf)
 
-        # _ = plt.hist(normalized_sdf_array, bins='auto')  # arguments are passed to np.histogram
+        object_color_array[:, 2] = 1 #- normalized_sdf_array
+        object_pcd.colors = o3d.utility.Vector3dVector(object_color_array)
 
-        # plt.title("Histogram with 'auto' bins")
-        # plt.show()
-
-
+        color_array = np.concatenate((depth_color_array, object_color_array), axis=0)
+        points_array = np.concatenate((depth_points.points, object_points.points), axis=0)
+        pcd = o3d.geometry.PointCloud()  # create point cloud object
+        pcd.points = o3d.utility.Vector3dVector(points_array)  # set pcd_np as the point cloud points
         pcd.colors = o3d.utility.Vector3dVector(color_array)
 
+
         origin = o3d.geometry.TriangleMesh.create_coordinate_frame(size=0.1)
-        # o3d.visualization.draw_geometries([pcd, origin])
+        o3d.visualization.draw_geometries([pcd, origin])
         o3d.io.write_point_cloud(f'dataset_YCB_train/DepthDeepSDF/files/untitled_1_{b}_inp.pcd', pcd)
         
         
         
         
-        
+        # exit(777)
         
         #nasycenie nieliniowe kolorów do wizualizacji
         # dane do json

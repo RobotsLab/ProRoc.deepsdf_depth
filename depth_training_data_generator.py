@@ -164,7 +164,7 @@ if __name__ == '__main__':
         odds = 0
         nans = 0
         problems = 0
-        num_samples = 4
+        num_samples = 2
         samples = 0
         output_file.pixels = []
         visualize_dict = {}
