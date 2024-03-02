@@ -164,12 +164,12 @@ if __name__ == '__main__':
         odds = 0
         nans = 0
         problems = 0
-        num_samples = 20
+        num_samples = 50
         samples = 0
         output_file.pixels = []
         visualize_dict = {}
-        fornt_bbox_z = input_file.dz + 0.05
-        back_bbox_z = input_file.dz2 - 0.1
+        fornt_bbox_z = input_file.dz  # + 0.05
+        back_bbox_z = input_file.dz2  # - 0.1
         print(len(input_file.pixels))
         for i, pixel in enumerate(input_file.pixels):
             unique = np.unique(pixel[pixel!=0])
@@ -188,10 +188,10 @@ if __name__ == '__main__':
                             passed_surfaces += 1
                     if passed_surfaces % 2 == 0:
                         sdf = 0
-                    elif len(unique)-1 > passed_surfaces:
-                        sdf = min(abs(sample - unique[passed_surfaces]), abs(sample - unique[passed_surfaces+1]))
                     else:
-                        continue
+                        sdf = sample - unique[passed_surfaces-1]
+                        if sdf < 0:
+                            print(passed_surfaces, sample, unique)
                     dd = sample - rd - fornt_bbox_z
                     visualize_dict[key].append([rd, dd, sdf])
                     samples += 1
@@ -205,6 +205,13 @@ if __name__ == '__main__':
                 nans+=1
 
         output_file.save(visualize_dict)
+        # for key, values in visualize_dict.items():
+        #     for value in values:
+        #         if np.any(np.isnan(value)):
+        #             continue
+        #         else:
+        #             if value[1] < 0 and value[2] > 0:
+        #                 print(value, type(value))
         print("Odds:", odds)
         print("Total:", len(visualize_dict))
         print("Ratio:", format(odds/samples, ".00%"))
@@ -215,7 +222,7 @@ if __name__ == '__main__':
         print("PROBLEMS", problems)
         print("Samples", samples)
         print("--------------------------------------")
-    
+        # exit(777)
         #                 pixel = [rd]
         #                 if j%2 == 1:
         #                     sampled_points, problem = sample_points(unique[j-1], point_z, num_samples)

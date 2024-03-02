@@ -135,7 +135,7 @@ def generate_input_pcd(input_file):
 
 
 if __name__ == '__main__':
-    for b in range(4, 5):
+    for b in range(5):
         SOURCE_PATH = f'dataset_YCB_train/DepthDeepSDF/files/untitled_1_{b}.txt'
         INPUT_PATH = f'dataset_YCB_train/DepthDeepSDF/files/untitled_1_{b}_inp.json'
 
@@ -168,20 +168,20 @@ if __name__ == '__main__':
 
         min_sdf = np.min(object_sdf_array)
         mean_sdf = np.mean(object_sdf_array)
-        max_sdf = np.max(object_sdf_array)
+        max_sdf = 0.01  # np.max(object_sdf_array)
         normalized_sdf_array = (object_sdf_array - min_sdf) / (max_sdf - min_sdf)
-
+        print(min_sdf, max_sdf)
         object_color_array[:, 2] = 1 - normalized_sdf_array
         object_pcd.colors = o3d.utility.Vector3dVector(object_color_array)
 
         origin = o3d.geometry.TriangleMesh.create_coordinate_frame(size=0.1)
         o3d.visualization.draw_geometries([depth_pcd, object_pcd, origin])
-        o3d.io.write_point_cloud(f'dataset_YCB_train/DepthDeepSDF/files/untitled_1_{b}_inp.pcd', object_pcd)
+        # o3d.io.write_point_cloud(f'dataset_YCB_train/DepthDeepSDF/files/untitled_1_{b}_inp.pcd', object_pcd)
         
         
         
         
-        # exit(777)
+        exit(777)
         
         #nasycenie nieliniowe kolorów do wizualizacji
         # dane do json
