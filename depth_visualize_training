@@ -135,9 +135,11 @@ def generate_input_pcd(input_file):
 
 
 if __name__ == '__main__':
+    vis = o3d.visualization.Visualizer()
+
     for b in range(5):
-        SOURCE_PATH = f'dataset_YCB_train/DepthDeepSDF/files/untitled_1_{b}.txt'
-        INPUT_PATH = f'dataset_YCB_train/DepthDeepSDF/files/untitled_1_{b}_inp.json'
+        SOURCE_PATH = f'dataset_YCB_train/DepthDeepSDF/files/untitled_2_{b}.txt'
+        INPUT_PATH = f'dataset_YCB_train/DepthDeepSDF/files/untitled_2_{b}_inp.json'
 
         data_file = DepthFile(SOURCE_PATH)
         load_depth_file(data_file)
@@ -156,32 +158,54 @@ if __name__ == '__main__':
                 x, y = map(int, key.split(', '))
                 if np.any(np.isnan(row)):
                     break
-                z = row[0] + row[1] + data_file.dz
-                sdf = row[2]
-                object_image.append(np.array([x, y, z, sdf]))
+                else:
+                    z = row[0] + row[1] + data_file.dz
+                    sdf = row[2]
+                    object_image.append(np.array([x, y, z, sdf]))
 
         object_points = PointsFromDepth(data_file, object_image)
+        # object_points.image = object_points.image[object_points.image[:, 3] < 0.02]
         object_pcd = object_points.to_point_cloud()
         object_sdf_array = object_points.image[:, 3]
 
         object_color_array = np.zeros((len(object_sdf_array), 3))
 
+        # object_sdf_array = np.clip(object_sdf_array, 0, 0.01)
         min_sdf = np.min(object_sdf_array)
         mean_sdf = np.mean(object_sdf_array)
-        max_sdf = 0.01  # np.max(object_sdf_array)
+        max_sdf = np.max(object_sdf_array)
         normalized_sdf_array = (object_sdf_array - min_sdf) / (max_sdf - min_sdf)
+
+        # plt.hist(normalized_sdf_array, bins=100)
+        # plt.show()
+
         print(min_sdf, max_sdf)
-        object_color_array[:, 2] = 1 - normalized_sdf_array
+        object_color_array[:, 2] = (1 - normalized_sdf_array) ** 2
         object_pcd.colors = o3d.utility.Vector3dVector(object_color_array)
 
+        pcd_points_ndarray = np.concatenate((np.asarray(depth_pcd.points), np.asarray(object_pcd.points)), axis=0)
+        pcd_colors_ndarray = np.concatenate((np.asarray(depth_pcd.colors), np.asarray(object_pcd.colors)), axis=0)
+        pcd = o3d.geometry.PointCloud()  # create point cloud object
+        pcd.points = o3d.utility.Vector3dVector(pcd_points_ndarray)  # set pcd_np as the point cloud points
+        pcd.colors = o3d.utility.Vector3dVector(pcd_colors_ndarray)
         origin = o3d.geometry.TriangleMesh.create_coordinate_frame(size=0.1)
-        o3d.visualization.draw_geometries([depth_pcd, object_pcd, origin])
-        # o3d.io.write_point_cloud(f'dataset_YCB_train/DepthDeepSDF/files/untitled_1_{b}_inp.pcd', object_pcd)
+
+        # vis.create_window()
+
+        # vis.add_geometry(pcd)
+
+        # opt = vis.get_render_option()
+
+        # opt.background_color = np.asarray([0, 0, 0])
+
+        # vis.run()
+
+        # vis.destroy_window()
+
+        # o3d.visualization.draw_geometries([pcd, origin])
+        o3d.io.write_point_cloud(f'dataset_YCB_train/DepthDeepSDF/files/untitled_1_{b}_inp.pcd', pcd)
         
-        
-        
-        
-        exit(777)
+        # exit(777)
         
         #nasycenie nieliniowe kolorów do wizualizacji
         # dane do json

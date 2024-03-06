@@ -245,7 +245,7 @@ def stack_images(file, input_mesh, camera, view):
     return depth_image[file.ny:file.ny+file.ndy, file.nx:file.nx+file.ndx, :]
 
 if __name__ == '__main__':
-    SOURCE_PATH = 'dataset_YCB_train/DepthDeepSDF/files/untitled_1.txt'
+    SOURCE_PATH = 'dataset_YCB_train/DepthDeepSDF/files/untitled_2.txt'
     MESH_PATH = 'dataset_YCB_train/DepthDeepSDF/1a1c0a8d4bad82169f0594e65f756cf5/models/untitled.ply'
     DESTINATION_PATH = 'dataset_YCB_train/DepthDeepSDF/files/'
 

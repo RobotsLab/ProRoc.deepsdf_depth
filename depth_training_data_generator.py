@@ -152,7 +152,7 @@ def sample_points(start, stop, num_samples):
 #6512 6628 1_0
 if __name__ == '__main__':
     for b in range(5):
-        SOURCE_PATH = f'dataset_YCB_train/DepthDeepSDF/files/untitled_1_{b}.txt'
+        SOURCE_PATH = f'dataset_YCB_train/DepthDeepSDF/files/untitled_2_{b}.txt'
         DESTINATION_PATH = 'dataset_YCB_train/DepthDeepSDF/files'
 
         input_file = DepthFile(SOURCE_PATH)
@@ -164,7 +164,9 @@ if __name__ == '__main__':
         odds = 0
         nans = 0
         problems = 0
-        num_samples = 50
+        num_samples = 100
+        max_sdf = 0.02
+        max_saved_sdf = 0
         samples = 0
         output_file.pixels = []
         visualize_dict = {}
@@ -186,15 +188,19 @@ if __name__ == '__main__':
                     for j, point_z in enumerate(unique):
                         if sample > point_z:
                             passed_surfaces += 1
-                    if passed_surfaces % 2 == 0:
+                    if passed_surfaces % 2 == 1:
                         sdf = 0
-                    else:
-                        sdf = sample - unique[passed_surfaces-1]
+                    elif len(unique) > passed_surfaces:
+                        sdf = min(abs(sample - unique[passed_surfaces]), abs(sample - unique[passed_surfaces-1]))
                         if sdf < 0:
                             print(passed_surfaces, sample, unique)
+                    else:
+                        sdf = abs(sample - unique[passed_surfaces - 1])
                     dd = sample - rd - fornt_bbox_z
-                    visualize_dict[key].append([rd, dd, sdf])
-                    samples += 1
+                    if sdf < max_sdf:
+                        visualize_dict[key].append([rd, dd, sdf])
+                        samples += 1
+                        max_saved_sdf = max(max_saved_sdf, sdf)
             elif unique.any() and len(unique)%2 == 1:
                 output_file.pixels.append(np.array([np.nan]))
                 visualize_dict[key].append([np.nan])
@@ -215,10 +221,11 @@ if __name__ == '__main__':
         print("Odds:", odds)
         print("Total:", len(visualize_dict))
         print("Ratio:", format(odds/samples, ".00%"))
+        print("Max saved sdf:", max_saved_sdf)
 
         print("\nNans:", nans)
         print("Total:", samples)
-        print("Ratio:", format(nans/samples, ".00%"), "\n")
+        print("Ratio:", format(nans/samples, ".00%"))
         print("PROBLEMS", problems)
         print("Samples", samples)
         print("--------------------------------------")
