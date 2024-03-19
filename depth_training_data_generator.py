@@ -136,18 +136,64 @@ def find_sdf(input_file, pcd, points, first_surface, index):
 
     return np.array(sdf_list)
 
-def sample_points(start, stop, num_samples):
-    problems = 0
-    # mu = (stop + start) / 2
-    # sigma = (stop - start) / 6
-    # samples_gauss_dist = np.random.normal(mu, sigma, num_samples)
-    # samples_near_surf = u_distribution(samples_gauss_dist, mu, sigma)
-    # # samples_near_surf = samples_near_surf[(samples_near_surf >= start) & (samples_near_surf <= stop)]
-    # if np.all(samples_near_surf == samples_near_surf[0]):
-    #     samples_near_surf = np.array([mu-2*sigma, mu-sigma, mu+sigma, mu+2*sigma])
-    #     problems += 1
-    samples_near_surf = np.linspace(start, stop, num_samples)
-    return samples_near_surf, problems
+def linspace_sampling(rd, fornt_bbox_z, back_bbox_z, num_samples, unique, visualize_dict, max_sdf):
+    sampled_points = np.linspace(fornt_bbox_z, back_bbox_z, num_samples)
+    for sample in sampled_points:
+        passed_surfaces = 0
+        for j, point_z in enumerate(unique):
+            if sample > point_z:
+                passed_surfaces += 1
+        if passed_surfaces % 2 == 1:
+            sdf = 0
+        elif len(unique) > passed_surfaces:
+            sdf = min(abs(sample - unique[passed_surfaces]), abs(sample - unique[passed_surfaces-1]))
+            if sdf < 0:
+                print(passed_surfaces, sample, unique)
+        else:
+            sdf = abs(sample - unique[passed_surfaces - 1])
+        dd = sample - rd - fornt_bbox_z
+        if sdf < max_sdf:
+            visualize_dict[key].append([rd, dd, sdf])
+
+def deep_sdf_sampling(rd, fornt_bbox_z, back_bbox_z, num_samples, unique, visualize_dict, max_sdf):
+    std_dev_1 = 0.0025
+    std_dev_2 = 0.00025
+    for i, un in enumerate(unique):
+        # sample near surface
+        near_surface_point = np.random.normal(0, std_dev_1, 1)[0]
+        near_surface_point += un
+        sdf = un - near_surface_point
+        if i % 2 == 0:
+            if sdf < 0:
+                sdf = 0
+        else:
+            if sdf < 0:
+                sdf = abs(sdf)
+            else:
+                sdf = 0
+        dd = near_surface_point - fornt_bbox_z
+        print(rd, dd, sdf)
+        visualize_dict[key].append([rd, dd, sdf])
+
+
+
+    # sampled_points = np.linspace(fornt_bbox_z, back_bbox_z, num_samples)
+    # for sample in sampled_points:
+    #     passed_surfaces = 0
+    #     for j, point_z in enumerate(unique):
+    #         if sample > point_z:
+    #             passed_surfaces += 1
+    #     if passed_surfaces % 2 == 1:
+    #         sdf = 0
+    #     elif len(unique) > passed_surfaces:
+    #         sdf = min(abs(sample - unique[passed_surfaces]), abs(sample - unique[passed_surfaces-1]))
+    #         if sdf < 0:
+    #             print(passed_surfaces, sample, unique)
+    #     else:
+    #         sdf = abs(sample - unique[passed_surfaces - 1])
+    #     dd = sample - rd - fornt_bbox_z
+    #     if sdf < max_sdf:
+    #         visualize_dict[key].append([rd, dd, sdf])
 
 #6512 6628 1_0
 if __name__ == '__main__':
@@ -159,7 +205,7 @@ if __name__ == '__main__':
         load_depth_file(input_file)
 
         output_file = File(SOURCE_PATH, DESTINATION_PATH)
-        
+
         pcd = generate_pcd(input_file)
         odds = 0
         nans = 0
@@ -167,7 +213,7 @@ if __name__ == '__main__':
         num_samples = 100
         max_sdf = 0.02
         max_saved_sdf = 0
-        samples = 0
+        samples = 1
         output_file.pixels = []
         visualize_dict = {}
         fornt_bbox_z = input_file.dz  # + 0.05
@@ -182,25 +228,8 @@ if __name__ == '__main__':
             if unique.any() and len(unique)%2 == 0:
                 first_surface = unique[0]
                 rd = first_surface - fornt_bbox_z
-                sampled_points = np.linspace(fornt_bbox_z, back_bbox_z, num_samples)
-                for sample in sampled_points:
-                    passed_surfaces = 0
-                    for j, point_z in enumerate(unique):
-                        if sample > point_z:
-                            passed_surfaces += 1
-                    if passed_surfaces % 2 == 1:
-                        sdf = 0
-                    elif len(unique) > passed_surfaces:
-                        sdf = min(abs(sample - unique[passed_surfaces]), abs(sample - unique[passed_surfaces-1]))
-                        if sdf < 0:
-                            print(passed_surfaces, sample, unique)
-                    else:
-                        sdf = abs(sample - unique[passed_surfaces - 1])
-                    dd = sample - rd - fornt_bbox_z
-                    if sdf < max_sdf:
-                        visualize_dict[key].append([rd, dd, sdf])
-                        samples += 1
-                        max_saved_sdf = max(max_saved_sdf, sdf)
+                linspace_sampling(rd, fornt_bbox_z, back_bbox_z, num_samples, unique, visualize_dict, max_sdf)
+                # deep_sdf_sampling(rd, fornt_bbox_z, back_bbox_z, num_samples, unique, visualize_dict, max_sdf)
             elif unique.any() and len(unique)%2 == 1:
                 output_file.pixels.append(np.array([np.nan]))
                 visualize_dict[key].append([np.nan])
@@ -229,7 +258,7 @@ if __name__ == '__main__':
         print("PROBLEMS", problems)
         print("Samples", samples)
         print("--------------------------------------")
-        # exit(777)
+        exit(777)
         #                 pixel = [rd]
         #                 if j%2 == 1:
         #                     sampled_points, problem = sample_points(unique[j-1], point_z, num_samples)

@@ -198,7 +198,7 @@ def pcd_to_obj_ycb():
     for i, name in enumerate(pcd_list):
         pcd = o3d.io.read_point_cloud(source_path + '/' + pcd_list[i])
         print(source_path + '/' + pcd_list[i])
-        points = np.asarray(pcd.points)
+        points = np.asarray(pcd)
         points = points[~np.isnan(points)]
         points = np.reshape(points, (-1, 3))
         pcd.points = o3d.utility.Vector3dVector(points)

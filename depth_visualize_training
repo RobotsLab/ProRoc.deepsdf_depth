@@ -190,22 +190,22 @@ if __name__ == '__main__':
         pcd.colors = o3d.utility.Vector3dVector(pcd_colors_ndarray)
         origin = o3d.geometry.TriangleMesh.create_coordinate_frame(size=0.1)
 
-        # vis.create_window()
+        vis.create_window()
 
-        # vis.add_geometry(pcd)
+        vis.add_geometry(pcd)
 
-        # opt = vis.get_render_option()
+        opt = vis.get_render_option()
 
-        # opt.background_color = np.asarray([0, 0, 0])
+        opt.background_color = np.asarray([0, 0, 0])
 
-        # vis.run()
+        vis.run()
 
-        # vis.destroy_window()
+        vis.destroy_window()
 
         # o3d.visualization.draw_geometries([pcd, origin])
-        o3d.io.write_point_cloud(f'dataset_YCB_train/DepthDeepSDF/files/untitled_1_{b}_inp.pcd', pcd)
+        # o3d.io.write_point_cloud(f'dataset_YCB_train/DepthDeepSDF/files/untitled_1_{b}_inp.pcd', pcd)
         
-        # exit(777)
+        exit(777)
         
         #nasycenie nieliniowe kolorów do wizualizacji
         # dane do json
