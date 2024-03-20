@@ -138,8 +138,8 @@ if __name__ == '__main__':
     vis = o3d.visualization.Visualizer()
 
     for b in range(5):
-        SOURCE_PATH = f'dataset_YCB_train/DepthDeepSDF/files/untitled_2_{b}.txt'
-        INPUT_PATH = f'dataset_YCB_train/DepthDeepSDF/files/untitled_2_{b}_inp.json'
+        SOURCE_PATH = f'dataset_YCB_train/DepthDeepSDF/files/untitled_1_{b}.txt'
+        INPUT_PATH = f'dataset_YCB_train/DepthDeepSDF/files/untitled_1_{b}_inp.json'
 
         data_file = DepthFile(SOURCE_PATH)
         load_depth_file(data_file)
@@ -203,7 +203,7 @@ if __name__ == '__main__':
         vis.destroy_window()
 
         # o3d.visualization.draw_geometries([pcd, origin])
-        # o3d.io.write_point_cloud(f'dataset_YCB_train/DepthDeepSDF/files/untitled_1_{b}_inp.pcd', pcd)
+        # o3d.io.write_point_cloud(f'dataset_YCB_train/DepthDeepSDF/files/untitled_1_{b}_inp_rs100.pcd', pcd)
         
         exit(777)
         

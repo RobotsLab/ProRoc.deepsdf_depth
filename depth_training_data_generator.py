@@ -52,12 +52,6 @@ class File():
         self.dz2 = dz2
 
     def save(self, dictionary):
-        # with open(os.path.join(self.destination_dir, self.name + '_inp' +'.txt'), 'w') as f:
-        #     for pixel in self.pixels:
-        #         f.write(f"{' '.join(map(str, pixel))}\n")
-                # print(pixel)
-                # for p in pixel:
-                    # print(p)
         with open(os.path.join(self.destination_dir, self.name + '_inp' +'.json'), "w") as outfile:
             json.dump(dictionary, outfile)
         print("Saved:", os.path.join(self.destination_dir, self.name + '_inp' +'.json'))
@@ -136,6 +130,14 @@ def find_sdf(input_file, pcd, points, first_surface, index):
 
     return np.array(sdf_list)
 
+def rejection_sampling(sdf):
+    probability = random.random()
+    k = 500
+    if probability < np.exp(-k * sdf):
+        return sdf
+    else:
+        return -1
+
 def linspace_sampling(rd, fornt_bbox_z, back_bbox_z, num_samples, unique, visualize_dict, max_sdf):
     sampled_points = np.linspace(fornt_bbox_z, back_bbox_z, num_samples)
     for sample in sampled_points:
@@ -147,13 +149,21 @@ def linspace_sampling(rd, fornt_bbox_z, back_bbox_z, num_samples, unique, visual
             sdf = 0
         elif len(unique) > passed_surfaces:
             sdf = min(abs(sample - unique[passed_surfaces]), abs(sample - unique[passed_surfaces-1]))
+            # rejection sampling
+            sdf = rejection_sampling(sdf)
             if sdf < 0:
                 print(passed_surfaces, sample, unique)
+                continue
         else:
             sdf = abs(sample - unique[passed_surfaces - 1])
+            # rejection sampling
+            sdf = rejection_sampling(sdf)
+            if sdf < 0:
+                print(passed_surfaces, sample, unique)
+                continue
         dd = sample - rd - fornt_bbox_z
-        if sdf < max_sdf:
-            visualize_dict[key].append([rd, dd, sdf])
+        # if sdf < max_sdf:
+        visualize_dict[key].append([rd, dd, sdf])
 
 def deep_sdf_sampling(rd, fornt_bbox_z, back_bbox_z, num_samples, unique, visualize_dict, max_sdf):
     std_dev_1 = 0.0025
@@ -175,30 +185,9 @@ def deep_sdf_sampling(rd, fornt_bbox_z, back_bbox_z, num_samples, unique, visual
         print(rd, dd, sdf)
         visualize_dict[key].append([rd, dd, sdf])
 
-
-
-    # sampled_points = np.linspace(fornt_bbox_z, back_bbox_z, num_samples)
-    # for sample in sampled_points:
-    #     passed_surfaces = 0
-    #     for j, point_z in enumerate(unique):
-    #         if sample > point_z:
-    #             passed_surfaces += 1
-    #     if passed_surfaces % 2 == 1:
-    #         sdf = 0
-    #     elif len(unique) > passed_surfaces:
-    #         sdf = min(abs(sample - unique[passed_surfaces]), abs(sample - unique[passed_surfaces-1]))
-    #         if sdf < 0:
-    #             print(passed_surfaces, sample, unique)
-    #     else:
-    #         sdf = abs(sample - unique[passed_surfaces - 1])
-    #     dd = sample - rd - fornt_bbox_z
-    #     if sdf < max_sdf:
-    #         visualize_dict[key].append([rd, dd, sdf])
-
-#6512 6628 1_0
 if __name__ == '__main__':
     for b in range(5):
-        SOURCE_PATH = f'dataset_YCB_train/DepthDeepSDF/files/untitled_2_{b}.txt'
+        SOURCE_PATH = f'dataset_YCB_train/DepthDeepSDF/files/untitled_1_{b}.txt'
         DESTINATION_PATH = 'dataset_YCB_train/DepthDeepSDF/files'
 
         input_file = DepthFile(SOURCE_PATH)
@@ -240,13 +229,7 @@ if __name__ == '__main__':
                 nans+=1
 
         output_file.save(visualize_dict)
-        # for key, values in visualize_dict.items():
-        #     for value in values:
-        #         if np.any(np.isnan(value)):
-        #             continue
-        #         else:
-        #             if value[1] < 0 and value[2] > 0:
-        #                 print(value, type(value))
+
         print("Odds:", odds)
         print("Total:", len(visualize_dict))
         print("Ratio:", format(odds/samples, ".00%"))
@@ -259,43 +242,3 @@ if __name__ == '__main__':
         print("Samples", samples)
         print("--------------------------------------")
         exit(777)
-        #                 pixel = [rd]
-        #                 if j%2 == 1:
-        #                     sampled_points, problem = sample_points(unique[j-1], point_z, num_samples)
-        #                     dd = sampled_points - rd - fornt_bbox_z
-        #                     sdf = find_sdf(input_file, pcd, dd, first_surface, i)
-        #                     for d, s in zip(dd, sdf):
-        #                         output_file.pixels.append(np.array([rd, d, s]))
-        #                         visualize_dict[key].append([rd, d, s])
-        #                     problems += problem
-        #                     samples += sampled_points.shape[0]
-        #                 elif j > 0:
-        #                     sampled_points, problem = sample_points(unique[j-1], point_z, num_samples)
-        #                     dd = sampled_points - rd - fornt_bbox_z
-        #                     sdf = np.zeros(dd.shape)
-        #                     for d, s in zip(dd, sdf):
-        #                         output_file.pixels.append(np.array([rd, d, s])) 
-        #                         visualize_dict[key].append([rd, d, s])
-        #                     problems += problem
-        #                     samples += sampled_points.shape[0]
-
-        #     elif unique.any() and len(unique)%2 == 1:
-        #         output_file.pixels.append(np.array([np.nan]))
-        #         visualize_dict[key].append([np.nan])
-        #         odds+=1
-        #     else:
-        #         output_file.pixels.append(np.array([np.nan]))
-        #         visualize_dict[key].append([np.nan])
-        #         nans+=1
-        # output_file.save(visualize_dict)
-        # print("Odds:", odds)
-        # print("Total:", len(output_file.pixels))
-        # print("Ratio:", format(odds/len(output_file.pixels), ".00%"))
-
-        # print("\nNans:", nans)
-        # print("Total:", len(output_file.pixels))
-        # print("Ratio:", format(nans/len(output_file.pixels), ".00%"), "\n")
-        # print("PROBLEMS", problems)
-        # print("Samples", samples)
-        # print("--------------------------------------")
-
