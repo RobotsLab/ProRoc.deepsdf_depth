@@ -211,6 +211,7 @@ def stack_images(file, input_mesh, camera, view=25):
         x = key % file.Ndx
         depth_values = np.asarray(hits)
 
+        correct_hits = []
         for i in range(len(hits)):
             ray_vector = np_rays[y, x, -3:]
             normal_vector = triangle_normals[triangle_id[i]]
@@ -223,6 +224,10 @@ def stack_images(file, input_mesh, camera, view=25):
                 # print(angle)
                 angles+=1
             else:
+                correct_hits.append(hits[i])
+        
+        if len(hits) == len(correct_hits):
+            for i in range(len(correct_hits)):
                 depth_image[y, x, i] = hits[i]
 
 

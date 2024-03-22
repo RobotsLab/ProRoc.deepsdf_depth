@@ -133,11 +133,11 @@ def generate_input_pcd(input_file):
 
     return pcd
 
-
 if __name__ == '__main__':
     vis = o3d.visualization.Visualizer()
-    k = 25
+    k = 200
     a = 25
+
     for b in range(5):
         SOURCE_PATH = f'dataset_YCB_train/DepthDeepSDF/files/untitled_1_{b}.txt'
         INPUT_PATH = f'dataset_YCB_train/DepthDeepSDF/files/untitled_1_{b}_inp_a{a}_k{k}.json'
@@ -153,10 +153,13 @@ if __name__ == '__main__':
 
         object_image = []
         depth_image = []
+
         for key, value in input_file.items():
             pixel = []
+
             for i, row in enumerate(value):
                 x, y = map(int, key.split(', '))
+
                 if np.any(np.isnan(row)):
                     break
                 else:
@@ -204,9 +207,9 @@ if __name__ == '__main__':
         vis.destroy_window()
 
         # o3d.visualization.draw_geometries([pcd, origin])
-        # o3d.io.write_point_cloud(f'dataset_YCB_train/DepthDeepSDF/files/untitled_1_{b}_inp_a{a}_k{k}.pcd', pcd)
+        o3d.io.write_point_cloud(f'dataset_YCB_train/DepthDeepSDF/files/untitled_1_{b}_inp_a{a}_k{k}.pcd', pcd)
         
-        exit(777)
+        # exit(777)
         
         #nasycenie nieliniowe kolorów do wizualizacji
         # dane do json

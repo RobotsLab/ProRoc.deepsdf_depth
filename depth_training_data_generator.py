@@ -9,7 +9,7 @@ from depth.utils import *
 from depth.camera import Camera
 from depth_image_generator import File as DepthFile
 
-K = 25
+K = 200
 A = 25
 
 class File():
@@ -111,8 +111,7 @@ def find_sdf(input_file, pcd, points, first_surface, index):
         point += first_surface
         height, width = input_file.ndy, input_file.ndx
 
-        v = (index // width) + input_file.ny
-        u = (index % width) + input_file.nx
+        u, v = index
 
         z = point
         x = (input_file.cx - u) * z / input_file.f  # y on image is x in real world
@@ -126,13 +125,12 @@ def find_sdf(input_file, pcd, points, first_surface, index):
 
         # find 10 nearest points
         tree = KDTree(object_points, leafsize=object_points.shape[0]+1)
-        distances, ndx = tree.query([sampled_point], k=1)
-        print(distances, object_points[ndx])
+        distances, ndx = tree.query([sampled_point], k=1)  # distances is the same as sdf
 
         sdf = np.linalg.norm(object_points[ndx] - sampled_point)
         sdf_list.append(sdf)
-
-    return np.array(sdf_list)
+        
+    return sdf_list
 
 def rejection_sampling(sdf):
     probability = random.random()
@@ -141,17 +139,21 @@ def rejection_sampling(sdf):
     else:
         return -1
 
-def linspace_sampling(rd, fornt_bbox_z, back_bbox_z, num_samples, unique, visualize_dict, max_sdf):
+def linspace_sampling(rd, fornt_bbox_z, back_bbox_z, num_samples, unique, visualize_dict, input_file, pcd, x, y):
     sampled_points = np.linspace(fornt_bbox_z, back_bbox_z, num_samples)
     for sample in sampled_points:
+        dd = sample - rd - fornt_bbox_z
+
         passed_surfaces = 0
         for j, point_z in enumerate(unique):
             if sample > point_z:
                 passed_surfaces += 1
+
         if passed_surfaces % 2 == 1:
             sdf = 0
         elif len(unique) > passed_surfaces:
             sdf = min(abs(sample - unique[passed_surfaces]), abs(sample - unique[passed_surfaces-1]))
+            # sdf = find_sdf(input_file, pcd, [dd], fornt_bbox_z, index=(x, y))[0]
             # rejection sampling
             sdf = rejection_sampling(sdf)
             if sdf < 0:
@@ -159,13 +161,13 @@ def linspace_sampling(rd, fornt_bbox_z, back_bbox_z, num_samples, unique, visual
                 continue
         else:
             sdf = abs(sample - unique[passed_surfaces - 1])
+            # sdf = find_sdf(input_file, pcd, [dd], fornt_bbox_z, index=(x, y))[0]
             # rejection sampling
             sdf = rejection_sampling(sdf)
             if sdf < 0:
                 # print(passed_surfaces, sample, unique)
                 continue
-        dd = sample - rd - fornt_bbox_z
-        # if sdf < max_sdf:
+
         visualize_dict[key].append([rd, dd, sdf])
 
 if __name__ == '__main__':
@@ -191,25 +193,26 @@ if __name__ == '__main__':
         fornt_bbox_z = input_file.dz  # + 0.05
         back_bbox_z = input_file.dz2  # - 0.1
         print(len(input_file.pixels))
+
         for i, pixel in enumerate(input_file.pixels):
             unique = np.unique(pixel[pixel!=0])
             x = (i % input_file.ndx) + input_file.nx
             y = (i // input_file.ndx) + input_file.ny
             key = f"{x}, {y}"
             visualize_dict[key] = []
+
             if unique.any() and len(unique)%2 == 0:
                 first_surface = unique[0]
                 rd = first_surface - fornt_bbox_z
-                linspace_sampling(rd, fornt_bbox_z, back_bbox_z, num_samples, unique, visualize_dict, max_sdf)
-                
+                linspace_sampling(rd, fornt_bbox_z, back_bbox_z, num_samples, unique, visualize_dict, input_file, pcd, x, y)
             elif unique.any() and len(unique)%2 == 1:
                 output_file.pixels.append(np.array([np.nan]))
                 visualize_dict[key].append([np.nan])
-                odds+=1
+                odds += 1
             else:
                 output_file.pixels.append(np.array([np.nan]))
                 visualize_dict[key].append([np.nan])
-                nans+=1
+                nans += 1
 
         output_file.save(visualize_dict)
 
