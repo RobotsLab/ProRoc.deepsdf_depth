@@ -158,7 +158,7 @@ def find_angle(v1, v2):
     angle = np.rad2deg(np.arccos(np.clip(c, -1, 1)))
     return angle
 
-def stack_images(file, input_mesh, camera, view):
+def stack_images(file, input_mesh, camera, view=25):
     '''SOLVED
     Gdy któryś z promieni pierwszy dotknie następnego trójkąta, ten trójkąt nie zostanie zarejestrowany przez sąsiedni promień.
     Sprawdzić ile promieni przecina trójkąt do usunięcia, jeżeli po usunięciu liczba intersekcji spadnie dla 
@@ -218,12 +218,12 @@ def stack_images(file, input_mesh, camera, view):
             min_angle = min(angle, min_angle)
             max_angle = max(angle, max_angle)
 
-            # if 90-view <= angle <= 90+view:
-            #     # print(x, y, ray_vector, normal_vector, hits[i], normals[y, x])
-            #     # print(angle)
-            #     angles+=1
-            # else:
-            depth_image[y, x, i] = hits[i]
+            if 90-view <= angle <= 90+view:
+                # print(x, y, ray_vector, normal_vector, hits[i], normals[y, x])
+                # print(angle)
+                angles+=1
+            else:
+                depth_image[y, x, i] = hits[i]
 
 
         min_y = min(min_y, y)
@@ -282,7 +282,7 @@ if __name__ == '__main__':
         # plt.imshow(img, cmap='gray')
         # plt.title('Pionhole camera image')
         # plt.show()
-        depth_image = stack_images(output_file, scaled_mesh, camera, view)
+        depth_image = stack_images(output_file, scaled_mesh, camera)
         # plt.imshow(depth_image[:,:,0], cmap='gray')
         # plt.title('Pionhole camera image')
         # plt.show()

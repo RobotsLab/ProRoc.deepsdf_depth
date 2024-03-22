@@ -9,6 +9,9 @@ from depth.utils import *
 from depth.camera import Camera
 from depth_image_generator import File as DepthFile
 
+K = 25
+A = 25
+
 class File():
     def __init__(self, source_path, destination_dir):
         self.source_path = source_path
@@ -52,9 +55,9 @@ class File():
         self.dz2 = dz2
 
     def save(self, dictionary):
-        with open(os.path.join(self.destination_dir, self.name + '_inp' +'.json'), "w") as outfile:
+        with open(os.path.join(self.destination_dir, self.name + f'_inp_a{A}_k{K}' +'.json'), "w") as outfile:
             json.dump(dictionary, outfile)
-        print("Saved:", os.path.join(self.destination_dir, self.name + '_inp' +'.json'))
+        print("Saved:", os.path.join(self.destination_dir, self.name + f'_inp_a{A}_k{K}' +'.json'))
 
 
 def load_depth_file(input_file):
@@ -124,6 +127,7 @@ def find_sdf(input_file, pcd, points, first_surface, index):
         # find 10 nearest points
         tree = KDTree(object_points, leafsize=object_points.shape[0]+1)
         distances, ndx = tree.query([sampled_point], k=1)
+        print(distances, object_points[ndx])
 
         sdf = np.linalg.norm(object_points[ndx] - sampled_point)
         sdf_list.append(sdf)
@@ -132,8 +136,7 @@ def find_sdf(input_file, pcd, points, first_surface, index):
 
 def rejection_sampling(sdf):
     probability = random.random()
-    k = 500
-    if probability < np.exp(-k * sdf):
+    if probability < np.exp(-K * sdf):
         return sdf
     else:
         return -1
@@ -152,37 +155,17 @@ def linspace_sampling(rd, fornt_bbox_z, back_bbox_z, num_samples, unique, visual
             # rejection sampling
             sdf = rejection_sampling(sdf)
             if sdf < 0:
-                print(passed_surfaces, sample, unique)
+                # print(passed_surfaces, sample, unique)
                 continue
         else:
             sdf = abs(sample - unique[passed_surfaces - 1])
             # rejection sampling
             sdf = rejection_sampling(sdf)
             if sdf < 0:
-                print(passed_surfaces, sample, unique)
+                # print(passed_surfaces, sample, unique)
                 continue
         dd = sample - rd - fornt_bbox_z
         # if sdf < max_sdf:
-        visualize_dict[key].append([rd, dd, sdf])
-
-def deep_sdf_sampling(rd, fornt_bbox_z, back_bbox_z, num_samples, unique, visualize_dict, max_sdf):
-    std_dev_1 = 0.0025
-    std_dev_2 = 0.00025
-    for i, un in enumerate(unique):
-        # sample near surface
-        near_surface_point = np.random.normal(0, std_dev_1, 1)[0]
-        near_surface_point += un
-        sdf = un - near_surface_point
-        if i % 2 == 0:
-            if sdf < 0:
-                sdf = 0
-        else:
-            if sdf < 0:
-                sdf = abs(sdf)
-            else:
-                sdf = 0
-        dd = near_surface_point - fornt_bbox_z
-        print(rd, dd, sdf)
         visualize_dict[key].append([rd, dd, sdf])
 
 if __name__ == '__main__':
@@ -218,7 +201,7 @@ if __name__ == '__main__':
                 first_surface = unique[0]
                 rd = first_surface - fornt_bbox_z
                 linspace_sampling(rd, fornt_bbox_z, back_bbox_z, num_samples, unique, visualize_dict, max_sdf)
-                # deep_sdf_sampling(rd, fornt_bbox_z, back_bbox_z, num_samples, unique, visualize_dict, max_sdf)
+                
             elif unique.any() and len(unique)%2 == 1:
                 output_file.pixels.append(np.array([np.nan]))
                 visualize_dict[key].append([np.nan])
@@ -241,4 +224,4 @@ if __name__ == '__main__':
         print("PROBLEMS", problems)
         print("Samples", samples)
         print("--------------------------------------")
-        exit(777)
+        # exit(777)
