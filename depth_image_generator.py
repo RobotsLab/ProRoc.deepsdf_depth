@@ -2,6 +2,7 @@ import argparse
 import open3d as o3d
 import matplotlib.pyplot as plt
 import copy
+import random
 
 from depth.utils import *
 from depth.camera import Camera
@@ -158,7 +159,7 @@ def find_angle(v1, v2):
     angle = np.rad2deg(np.arccos(np.clip(c, -1, 1)))
     return angle
 
-def stack_images(file, input_mesh, camera, view=25):
+def stack_images(file, input_mesh, camera, view=0):
     '''SOLVED
     Gdy któryś z promieni pierwszy dotknie następnego trójkąta, ten trójkąt nie zostanie zarejestrowany przez sąsiedni promień.
     Sprawdzić ile promieni przecina trójkąt do usunięcia, jeżeli po usunięciu liczba intersekcji spadnie dla 
@@ -204,7 +205,9 @@ def stack_images(file, input_mesh, camera, view=25):
     max_x = 0
     min_angle = 100
     max_angle = 0
-    angles = 0
+    rejected_angles = 0
+    sin_angles = []
+    angles_plot = []
     for key in distances_dict.keys():
         hits, ray_id, triangle_id = distances_dict[key]
         y = key // file.Ndx
@@ -212,6 +215,7 @@ def stack_images(file, input_mesh, camera, view=25):
         depth_values = np.asarray(hits)
 
         correct_hits = []
+        correct_angles_and_sin = []
         for i in range(len(hits)):
             ray_vector = np_rays[y, x, -3:]
             normal_vector = triangle_normals[triangle_id[i]]
@@ -219,16 +223,24 @@ def stack_images(file, input_mesh, camera, view=25):
             min_angle = min(angle, min_angle)
             max_angle = max(angle, max_angle)
 
-            if 90-view <= angle <= 90+view:
-                # print(x, y, ray_vector, normal_vector, hits[i], normals[y, x])
-                # print(angle)
-                angles+=1
-            else:
+            # abs sinus z kąta angle
+            sin_angle = abs(np.sin(np.deg2rad(angle)))
+
+            # power_factor the higher the less aggressive rejection
+            power_factor = 10
+            probability = np.power(random.random(), 1 / power_factor)
+
+            if probability >= sin_angle:
                 correct_hits.append(hits[i])
-        
+                correct_angles_and_sin.append((angle, sin_angle))
+            else:
+                rejected_angles += 1
+
         if len(hits) == len(correct_hits):
             for i in range(len(correct_hits)):
                 depth_image[y, x, i] = hits[i]
+                angles_plot.append(correct_angles_and_sin[i][0])
+                sin_angles.append(correct_angles_and_sin[i][1])
 
 
         min_y = min(min_y, y)
@@ -236,8 +248,10 @@ def stack_images(file, input_mesh, camera, view=25):
         max_y = max(max_y, y)
         max_x = max(max_x, x)
         # print(depth_image.shape)
+    plt.scatter(x=angles_plot, y=sin_angles)
+    plt.show()
 
-    print(f"Angle range from {90-view} to {90+view}\nSamples removed due to angle: {angles} Minimum angle: {min_angle} Maximum angle: {max_angle}")
+    print(f"Angle range from {90-view} to {90+view}\nSamples removed due to angle: {rejected_angles} Minimum angle: {min_angle} Maximum angle: {max_angle}")
 
     min_z = np.min(depth_image[depth_image!=0])
     max_z = np.max(depth_image[depth_image!=0])
@@ -265,7 +279,7 @@ if __name__ == '__main__':
     scaled_mesh, _ = scale(centered_mesh, input_file.scale)
 
 
-    for view, frame in enumerate(input_file.frames):
+    for view, frame in enumerate(input_file.frames[:1]):
         scaled_mesh = translate(scaled_mesh, frame[:3])
         scaled_mesh = rotate(scaled_mesh, frame[3:])
 
