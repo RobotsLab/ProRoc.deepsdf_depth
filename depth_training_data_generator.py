@@ -5,12 +5,14 @@ import copy
 import random
 import json
 
+from scipy.spatial import KDTree
+
 from depth.utils import *
 from depth.camera import Camera
 from depth_image_generator import File as DepthFile
 
-K = 200
-A = 25
+K = 100
+REJECTION_ANGLE = 0
 
 class File():
     def __init__(self, source_path, destination_dir):
@@ -55,9 +57,9 @@ class File():
         self.dz2 = dz2
 
     def save(self, dictionary):
-        with open(os.path.join(self.destination_dir, self.name + f'_inp_a{A}_k{K}' +'.json'), "w") as outfile:
+        with open(os.path.join(self.destination_dir, self.name + f'_inp_a{REJECTION_ANGLE}_k{K}' +'.json'), "w") as outfile:
             json.dump(dictionary, outfile)
-        print("Saved:", os.path.join(self.destination_dir, self.name + f'_inp_a{A}_k{K}' +'.json'))
+        print("Saved:", os.path.join(self.destination_dir, self.name + f'_inp_a{REJECTION_ANGLE}_k{K}' +'.json'))
 
 
 def load_depth_file(input_file):
@@ -120,8 +122,6 @@ def find_sdf(input_file, pcd, points, first_surface, index):
         sampled_point = np.column_stack([x, y, z])
 
         object_points = np.asarray(pcd.points)
-        
-        from scipy.spatial import KDTree
 
         # find 10 nearest points
         tree = KDTree(object_points, leafsize=object_points.shape[0]+1)
@@ -139,33 +139,41 @@ def rejection_sampling(sdf):
     else:
         return -1
 
-def linspace_sampling(rd, fornt_bbox_z, back_bbox_z, num_samples, unique, visualize_dict, input_file, pcd, x, y):
+def linspace_sampling(rd, fornt_bbox_z, back_bbox_z, num_samples, unique, visualize_dict, input_file, pcd, u, v):
     sampled_points = np.linspace(fornt_bbox_z, back_bbox_z, num_samples)
+    object_points = np.asarray(pcd.points)
+    tree = KDTree(object_points, leafsize=object_points.shape[0]+1)
+    
     for sample in sampled_points:
         dd = sample - rd - fornt_bbox_z
-
         passed_surfaces = 0
-        for j, point_z in enumerate(unique):
+        for point_z in unique:
             if sample > point_z:
                 passed_surfaces += 1
 
         if passed_surfaces % 2 == 1:
             sdf = 0
         elif len(unique) > passed_surfaces:
-            sdf = min(abs(sample - unique[passed_surfaces]), abs(sample - unique[passed_surfaces-1]))
-            # sdf = find_sdf(input_file, pcd, [dd], fornt_bbox_z, index=(x, y))[0]
+            z = sample
+            x = (input_file.cx - u) * z / input_file.f  # y on image is x in real world
+            y = (input_file.cy - v) * z / input_file.f  # x on image is y in real world
+            distances, ndx = tree.query(np.array([x, y, z]), k=1)  # distances is the same as sdf
+            sdf = distances
+
             # rejection sampling
             sdf = rejection_sampling(sdf)
             if sdf < 0:
-                # print(passed_surfaces, sample, unique)
                 continue
         else:
-            sdf = abs(sample - unique[passed_surfaces - 1])
-            # sdf = find_sdf(input_file, pcd, [dd], fornt_bbox_z, index=(x, y))[0]
+            z = sample
+            x = (input_file.cx - u) * z / input_file.f  # y on image is x in real world
+            y = (input_file.cy - v) * z / input_file.f  # x on image is y in real world
+            distances, ndx = tree.query(np.array([x, y, z]), k=1)  # distances is the same as sdf
+            sdf = distances
+
             # rejection sampling
             sdf = rejection_sampling(sdf)
             if sdf < 0:
-                # print(passed_surfaces, sample, unique)
                 continue
 
         visualize_dict[key].append([rd, dd, sdf])
@@ -181,7 +189,6 @@ if __name__ == '__main__':
         output_file = File(SOURCE_PATH, DESTINATION_PATH)
 
         pcd = generate_pcd(input_file)
-        odds = 0
         nans = 0
         problems = 0
         num_samples = 100
@@ -201,14 +208,17 @@ if __name__ == '__main__':
             key = f"{x}, {y}"
             visualize_dict[key] = []
 
+            # sprawdzamy czy liczba przecięć jest parzysta
             if unique.any() and len(unique)%2 == 0:
+                # obliczamy podstawowe parametry
                 first_surface = unique[0]
                 rd = first_surface - fornt_bbox_z
+
+                # samplujemy punkty po promieniu
                 linspace_sampling(rd, fornt_bbox_z, back_bbox_z, num_samples, unique, visualize_dict, input_file, pcd, x, y)
-            elif unique.any() and len(unique)%2 == 1:
-                output_file.pixels.append(np.array([np.nan]))
-                visualize_dict[key].append([np.nan])
-                odds += 1
+                # obliczamy sdf
+                # punktom, które znajdują się za nieparzystą liczbą ścian przypisujemy wartość 0
+                # pozostałym punktom szukamy najbliższej powierzchni
             else:
                 output_file.pixels.append(np.array([np.nan]))
                 visualize_dict[key].append([np.nan])
@@ -216,9 +226,7 @@ if __name__ == '__main__':
 
         output_file.save(visualize_dict)
 
-        print("Odds:", odds)
         print("Total:", len(visualize_dict))
-        print("Ratio:", format(odds/samples, ".00%"))
         print("Max saved sdf:", max_saved_sdf)
 
         print("\nNans:", nans)

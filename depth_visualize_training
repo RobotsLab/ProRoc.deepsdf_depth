@@ -135,12 +135,12 @@ def generate_input_pcd(input_file):
 
 if __name__ == '__main__':
     vis = o3d.visualization.Visualizer()
-    k = 200
-    a = 25
+    k = 100
+    rejection_angle = 0
 
     for b in range(5):
         SOURCE_PATH = f'dataset_YCB_train/DepthDeepSDF/files/untitled_1_{b}.txt'
-        INPUT_PATH = f'dataset_YCB_train/DepthDeepSDF/files/untitled_1_{b}_inp_a{a}_k{k}.json'
+        INPUT_PATH = f'dataset_YCB_train/DepthDeepSDF/files/untitled_1_{b}_inp_a{rejection_angle}_k{k}.json'
 
         data_file = DepthFile(SOURCE_PATH)
         load_depth_file(data_file)
@@ -168,7 +168,6 @@ if __name__ == '__main__':
                     object_image.append(np.array([x, y, z, sdf]))
 
         object_points = PointsFromDepth(data_file, object_image)
-        # object_points.image = object_points.image[object_points.image[:, 3] < 0.02]
         object_pcd = object_points.to_point_cloud()
         object_sdf_array = object_points.image[:, 3]
 
@@ -185,6 +184,7 @@ if __name__ == '__main__':
 
         print(min_sdf, max_sdf)
         object_color_array[:, 2] = (1 - normalized_sdf_array) ** 2
+        # object_color_array[normalized_sdf_array == 0, 1] = 1
         object_pcd.colors = o3d.utility.Vector3dVector(object_color_array)
 
         pcd_points_ndarray = np.concatenate((np.asarray(depth_pcd.points), np.asarray(object_pcd.points)), axis=0)
@@ -207,7 +207,7 @@ if __name__ == '__main__':
         vis.destroy_window()
 
         # o3d.visualization.draw_geometries([pcd, origin])
-        o3d.io.write_point_cloud(f'dataset_YCB_train/DepthDeepSDF/files/untitled_1_{b}_inp_a{a}_k{k}.pcd', pcd)
+        o3d.io.write_point_cloud(f'dataset_YCB_train/DepthDeepSDF/files/untitled_1_{b}_inp_a{rejection_angle}_k{k}.pcd', pcd)
         
         # exit(777)
         
