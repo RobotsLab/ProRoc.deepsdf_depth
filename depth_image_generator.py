@@ -206,6 +206,7 @@ def stack_images(file, input_mesh, camera, view=0):
     min_angle = 100
     max_angle = 0
     rejected_angles = 0
+    odd = 0
     sin_angles = []
     angles_plot = []
     for key in distances_dict.keys():
@@ -236,11 +237,13 @@ def stack_images(file, input_mesh, camera, view=0):
             else:
                 rejected_angles += 1
 
-        if len(hits) == len(correct_hits):
+        if len(hits) == len(correct_hits) and len(hits) % 2 == 0:
             for i in range(len(correct_hits)):
                 depth_image[y, x, i] = hits[i]
                 angles_plot.append(correct_angles_and_sin[i][0])
                 sin_angles.append(correct_angles_and_sin[i][1])
+        elif len(hits) % 2 == 1:
+            odd += 1
 
 
         min_y = min(min_y, y)
@@ -252,6 +255,13 @@ def stack_images(file, input_mesh, camera, view=0):
     plt.show()
 
     print(f"Angle range from {90-view} to {90+view}\nSamples removed due to angle: {rejected_angles} Minimum angle: {min_angle} Maximum angle: {max_angle}")
+    print("Odds:", odd)
+    print("Length dict: ", len(distances_dict))
+    odds_ratio = 100 * odd / (odd + len(distances_dict))
+    print("Odds ratio:", round(odds_ratio, 2), "%")
+
+    if odds_ratio >= 0.5:
+        return None
 
     min_z = np.min(depth_image[depth_image!=0])
     max_z = np.max(depth_image[depth_image!=0])
@@ -279,7 +289,7 @@ if __name__ == '__main__':
     scaled_mesh, _ = scale(centered_mesh, input_file.scale)
 
 
-    for view, frame in enumerate(input_file.frames[:1]):
+    for view, frame in enumerate(input_file.frames):
         scaled_mesh = translate(scaled_mesh, frame[:3])
         scaled_mesh = rotate(scaled_mesh, frame[3:])
 
@@ -302,6 +312,8 @@ if __name__ == '__main__':
         # plt.title('Pionhole camera image')
         # plt.show()
         depth_image = stack_images(output_file, scaled_mesh, camera)
+        if depth_image is None:
+            continue
         # plt.imshow(depth_image[:,:,0], cmap='gray')
         # plt.title('Pionhole camera image')
         # plt.show()
@@ -312,3 +324,9 @@ if __name__ == '__main__':
         output_file.pixels.append(depth_image)
         output_file.save(view)
         output_file.pixels.clear()
+
+        # w tym programie musi być liczenie ścianek na promieniu, jeżeli:
+        # unique(intersection) % 2 = 0 promień zostaje
+        # unique(intersection) % 2 = 1 promień jest odrzucany
+        # 100 * odrzucone promienie / wszystkie promienie > 5 widok jest odrzucony
+        
