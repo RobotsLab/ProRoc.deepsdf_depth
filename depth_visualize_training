@@ -10,6 +10,9 @@ from depth.camera import Camera
 from depth_image_generator import File as DepthFile
 from sklearn.preprocessing import StandardScaler
 
+from depth_file_generator import File as ViewsFile
+from depth_image_generator import load_generator_file, translate, scale, rotate
+
 class File():
     def __init__(self, source_path, destination_dir):
         self.source_path = source_path
@@ -135,10 +138,10 @@ def generate_input_pcd(input_file):
 
 if __name__ == '__main__':
     vis = o3d.visualization.Visualizer()
-    k = 100
+    k = 50
     rejection_angle = 0
 
-    for b in range(5):
+    for b in range(1, 5):
         SOURCE_PATH = f'dataset_YCB_train/DepthDeepSDF/files/untitled_1_{b}.txt'
         INPUT_PATH = f'dataset_YCB_train/DepthDeepSDF/files/untitled_1_{b}_inp_a{rejection_angle}_k{k}.json'
 

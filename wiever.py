@@ -32,7 +32,7 @@ def visualize(*pcd):
     o3d.visualization.draw_geometries(pcd)
 
 if __name__ == '__main__':
-    path = "dataset_YCB_train/DepthDeepSDF/files/untitled_1_0_inp.pcd"
+    path = "dataset_YCB_train/DepthDeepSDF/files/untitled_1_3_inp_a0_k100.pcd"
     # path2 = "data_YCB/SdfSamples/dataset_YCB_train/sensors_depth/1ef68777bfdb7d6ba7a07ee616e34cd7.npz"
     point_cloud = load(path)
     # pcd2 = load(path2)

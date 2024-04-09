@@ -11,8 +11,12 @@ from depth.utils import *
 from depth.camera import Camera
 from depth_image_generator import File as DepthFile
 
+from depth_file_generator import File as ViewsFile
+from depth_image_generator import load_generator_file, translate, scale, rotate
+
+
 K = 100
-REJECTION_ANGLE = 0
+REJECTION_ANGLE = 10
 
 class File():
     def __init__(self, source_path, destination_dir):
@@ -107,31 +111,6 @@ def generate_pcd(input_file):
     
     return pcd
 
-def find_sdf(input_file, pcd, points, first_surface, index):
-    sdf_list = []
-    for point in points:
-        point += first_surface
-        height, width = input_file.ndy, input_file.ndx
-
-        u, v = index
-
-        z = point
-        x = (input_file.cx - u) * z / input_file.f  # y on image is x in real world
-        y = (input_file.cy - v) * z / input_file.f  # x on image is y in real world
-
-        sampled_point = np.column_stack([x, y, z])
-
-        object_points = np.asarray(pcd.points)
-
-        # find 10 nearest points
-        tree = KDTree(object_points, leafsize=object_points.shape[0]+1)
-        distances, ndx = tree.query([sampled_point], k=1)  # distances is the same as sdf
-
-        sdf = np.linalg.norm(object_points[ndx] - sampled_point)
-        sdf_list.append(sdf)
-        
-    return sdf_list
-
 def rejection_sampling(sdf):
     probability = random.random()
     if probability < np.exp(-K * sdf):
@@ -139,10 +118,10 @@ def rejection_sampling(sdf):
     else:
         return -1
 
-def linspace_sampling(rd, fornt_bbox_z, back_bbox_z, num_samples, unique, visualize_dict, input_file, pcd, u, v):
+def linspace_sampling(rd, fornt_bbox_z, back_bbox_z, num_samples, unique, visualize_dict, input_file, u, v, scene):
     sampled_points = np.linspace(fornt_bbox_z, back_bbox_z, num_samples)
-    object_points = np.asarray(pcd.points)
-    tree = KDTree(object_points, leafsize=object_points.shape[0]+1)
+    # object_points = np.asarray(pcd.points)
+    # tree = KDTree(object_points, leafsize=object_points.shape[0]+1)
     
     for sample in sampled_points:
         dd = sample - rd - fornt_bbox_z
@@ -157,19 +136,28 @@ def linspace_sampling(rd, fornt_bbox_z, back_bbox_z, num_samples, unique, visual
             z = sample
             x = (input_file.cx - u) * z / input_file.f  # y on image is x in real world
             y = (input_file.cy - v) * z / input_file.f  # x on image is y in real world
-            distances, ndx = tree.query(np.array([x, y, z]), k=1)  # distances is the same as sdf
-            sdf = distances
+            # distances, ndx = tree.query(np.array([x, y, z]), k=1)  # distances is the same as sdf
+
+            query_point = o3d.core.Tensor([[x, y, z]], dtype=o3d.core.Dtype.Float32)
+
+            # Compute distance of the query point from the surface
+            sdf = scene.compute_distance(query_point).item()
 
             # rejection sampling
             sdf = rejection_sampling(sdf)
             if sdf < 0:
                 continue
+
         else:
             z = sample
             x = (input_file.cx - u) * z / input_file.f  # y on image is x in real world
             y = (input_file.cy - v) * z / input_file.f  # x on image is y in real world
-            distances, ndx = tree.query(np.array([x, y, z]), k=1)  # distances is the same as sdf
-            sdf = distances
+            # distances, ndx = tree.query(np.array([x, y, z]), k=1)  # distances is the same as sdf
+
+            query_point = o3d.core.Tensor([[x, y, z]], dtype=o3d.core.Dtype.Float32)
+
+            # Compute distance of the query point from the surface
+            sdf = scene.compute_distance(query_point).item()
 
             # rejection sampling
             sdf = rejection_sampling(sdf)
@@ -179,16 +167,34 @@ def linspace_sampling(rd, fornt_bbox_z, back_bbox_z, num_samples, unique, visual
         visualize_dict[key].append([rd, dd, sdf])
 
 if __name__ == '__main__':
-    for b in range(5):
+    for b in range(1, 5):
         SOURCE_PATH = f'dataset_YCB_train/DepthDeepSDF/files/untitled_1_{b}.txt'
+        GT_PATH = f'dataset_YCB_train/DepthDeepSDF/files/untitled_1_gt_{b}.txt'
         DESTINATION_PATH = 'dataset_YCB_train/DepthDeepSDF/files'
+        # przygotować jeden plik z punktami gt i wczytać go do stworzenia pcd
 
         input_file = DepthFile(SOURCE_PATH)
         load_depth_file(input_file)
 
         output_file = File(SOURCE_PATH, DESTINATION_PATH)
 
-        pcd = generate_pcd(input_file)
+        gt_file = DepthFile(GT_PATH)
+        load_depth_file(gt_file)
+
+        pcd = generate_pcd(gt_file)
+        points = np.asarray(pcd.points)
+        print('pcd', np.mean(points, axis=0))
+        pcd.estimate_normals()
+        
+        distances = pcd.compute_nearest_neighbor_distance()
+        avg_dist = np.mean(distances)
+        radius = avg_dist
+        ply = o3d.geometry.TriangleMesh.create_from_point_cloud_ball_pivoting(pcd, o3d.utility.DoubleVector([radius, radius * 2]))
+
+        scene = o3d.t.geometry.RaycastingScene()
+        mesh = o3d.t.geometry.TriangleMesh.from_legacy(ply)
+        _ = scene.add_triangles(mesh)  # we do not need the geometry ID for mesh
+
         nans = 0
         problems = 0
         num_samples = 100
@@ -215,7 +221,7 @@ if __name__ == '__main__':
                 rd = first_surface - fornt_bbox_z
 
                 # samplujemy punkty po promieniu
-                linspace_sampling(rd, fornt_bbox_z, back_bbox_z, num_samples, unique, visualize_dict, input_file, pcd, x, y)
+                linspace_sampling(rd, fornt_bbox_z, back_bbox_z, num_samples, unique, visualize_dict, input_file, x, y, scene)
                 # obliczamy sdf
                 # punktom, które znajdują się za nieparzystą liczbą ścian przypisujemy wartość 0
                 # pozostałym punktom szukamy najbliższej powierzchni

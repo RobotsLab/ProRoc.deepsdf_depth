@@ -8,6 +8,8 @@ from depth.utils import *
 from depth.camera import Camera
 from depth_file_generator import File as ViewsFile
 
+POWER_FACTOR = 10
+
 class File():
     def __init__(self, source_path, destination_dir=''):
         self.source_path = source_path
@@ -52,7 +54,7 @@ class File():
         self.dz2 = dz2
 
     def save(self, view):
-        with open(os.path.join(self.destination_dir, self.name + '_' + str(view) +'.txt'), 'w') as f:
+        with open(os.path.join(self.destination_dir, self.name + '_' + str(view) + '_a{POWER_FACTOR}.txt'), 'w') as f:
             f.write(f"{' '.join(map(str, self.o_c_transformation))}\n")
             f.write(f'{self.f} {self.cx} {self.cy}\n')
             f.write(f'{self.Ndx} {self.Ndy}\n')
@@ -199,6 +201,7 @@ def stack_images(file, input_mesh, camera, view=0):
     
     depth_image = np.zeros((file.Ndy, file.Ndx, np.max(counts)))
 
+    gt = False
     min_y = file.Ndy
     min_x = file.Ndx
     max_y = 0
@@ -209,6 +212,7 @@ def stack_images(file, input_mesh, camera, view=0):
     odd = 0
     sin_angles = []
     angles_plot = []
+
     for key in distances_dict.keys():
         hits, ray_id, triangle_id = distances_dict[key]
         y = key // file.Ndx
@@ -228,8 +232,9 @@ def stack_images(file, input_mesh, camera, view=0):
             sin_angle = abs(np.sin(np.deg2rad(angle)))
 
             # power_factor the higher the less aggressive rejection
-            power_factor = 10
-            probability = np.power(random.random(), 1 / power_factor)
+            probability = np.power(random.random(), 1 / POWER_FACTOR)
+            if gt:
+                sin_angle = -1
 
             if probability >= sin_angle:
                 correct_hits.append(hits[i])
@@ -251,8 +256,8 @@ def stack_images(file, input_mesh, camera, view=0):
         max_y = max(max_y, y)
         max_x = max(max_x, x)
         # print(depth_image.shape)
-    plt.scatter(x=angles_plot, y=sin_angles)
-    plt.show()
+    # plt.scatter(x=angles_plot, y=sin_angles)
+    # plt.show()
 
     print(f"Angle range from {90-view} to {90+view}\nSamples removed due to angle: {rejected_angles} Minimum angle: {min_angle} Maximum angle: {max_angle}")
     print("Odds:", odd)
@@ -261,6 +266,7 @@ def stack_images(file, input_mesh, camera, view=0):
     print("Odds ratio:", round(odds_ratio, 2), "%")
 
     if odds_ratio >= 0.5:
+        print("DISMISSED!\n")
         return None
 
     min_z = np.min(depth_image[depth_image!=0])
