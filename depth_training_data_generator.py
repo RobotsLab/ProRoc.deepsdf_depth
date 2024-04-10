@@ -15,7 +15,7 @@ from depth_file_generator import File as ViewsFile
 from depth_image_generator import load_generator_file, translate, scale, rotate
 
 
-K = 100
+K = 150
 REJECTION_ANGLE = 10
 
 class File():
@@ -61,9 +61,9 @@ class File():
         self.dz2 = dz2
 
     def save(self, dictionary):
-        with open(os.path.join(self.destination_dir, self.name + f'_inp_a{REJECTION_ANGLE}_k{K}' +'.json'), "w") as outfile:
+        with open(os.path.join(self.destination_dir, self.name + f'_k{K}_inp' +'.json'), "w") as outfile:
             json.dump(dictionary, outfile)
-        print("Saved:", os.path.join(self.destination_dir, self.name + f'_inp_a{REJECTION_ANGLE}_k{K}' +'.json'))
+        print("Saved:", os.path.join(self.destination_dir, self.name + f'_k{K}_inp' +'.json'))
 
 
 def load_depth_file(input_file):
@@ -167,78 +167,82 @@ def linspace_sampling(rd, fornt_bbox_z, back_bbox_z, num_samples, unique, visual
         visualize_dict[key].append([rd, dd, sdf])
 
 if __name__ == '__main__':
-    for b in range(1, 5):
-        SOURCE_PATH = f'dataset_YCB_train/DepthDeepSDF/files/untitled_1_{b}.txt'
-        GT_PATH = f'dataset_YCB_train/DepthDeepSDF/files/untitled_1_gt_{b}.txt'
-        DESTINATION_PATH = 'dataset_YCB_train/DepthDeepSDF/files'
-        # przygotować jeden plik z punktami gt i wczytać go do stworzenia pcd
+    for b in range(50):
+        try:
+            SOURCE_PATH = f'dataset_YCB_train/DepthDeepSDF/files/untitled_1_{b}_a{REJECTION_ANGLE}.txt'
+            GT_PATH = f'dataset_YCB_train/DepthDeepSDF/files/untitled_1_{b}_gt.txt'
+            DESTINATION_PATH = 'dataset_YCB_train/DepthDeepSDF/files'
+            # przygotować jeden plik z punktami gt i wczytać go do stworzenia pcd
 
-        input_file = DepthFile(SOURCE_PATH)
-        load_depth_file(input_file)
+            input_file = DepthFile(SOURCE_PATH)
+            load_depth_file(input_file)
 
-        output_file = File(SOURCE_PATH, DESTINATION_PATH)
+            output_file = File(SOURCE_PATH, DESTINATION_PATH)
 
-        gt_file = DepthFile(GT_PATH)
-        load_depth_file(gt_file)
+            gt_file = DepthFile(GT_PATH)
+            load_depth_file(gt_file)
 
-        pcd = generate_pcd(gt_file)
-        points = np.asarray(pcd.points)
-        print('pcd', np.mean(points, axis=0))
-        pcd.estimate_normals()
-        
-        distances = pcd.compute_nearest_neighbor_distance()
-        avg_dist = np.mean(distances)
-        radius = avg_dist
-        ply = o3d.geometry.TriangleMesh.create_from_point_cloud_ball_pivoting(pcd, o3d.utility.DoubleVector([radius, radius * 2]))
+            pcd = generate_pcd(gt_file)
+            points = np.asarray(pcd.points)
+            print('pcd', np.mean(points, axis=0))
+            pcd.estimate_normals()
+            
+            distances = pcd.compute_nearest_neighbor_distance()
+            avg_dist = np.mean(distances)
+            radius = avg_dist
+            ply = o3d.geometry.TriangleMesh.create_from_point_cloud_ball_pivoting(pcd, o3d.utility.DoubleVector([radius, radius * 2]))
 
-        scene = o3d.t.geometry.RaycastingScene()
-        mesh = o3d.t.geometry.TriangleMesh.from_legacy(ply)
-        _ = scene.add_triangles(mesh)  # we do not need the geometry ID for mesh
+            scene = o3d.t.geometry.RaycastingScene()
+            mesh = o3d.t.geometry.TriangleMesh.from_legacy(ply)
+            _ = scene.add_triangles(mesh)  # we do not need the geometry ID for mesh
 
-        nans = 0
-        problems = 0
-        num_samples = 100
-        max_sdf = 0.02
-        max_saved_sdf = 0
-        samples = 1
-        output_file.pixels = []
-        visualize_dict = {}
-        fornt_bbox_z = input_file.dz  # + 0.05
-        back_bbox_z = input_file.dz2  # - 0.1
-        print(len(input_file.pixels))
+            nans = 0
+            problems = 0
+            num_samples = 100
+            max_sdf = 0.02
+            max_saved_sdf = 0
+            samples = 1
+            output_file.pixels = []
+            visualize_dict = {}
+            fornt_bbox_z = input_file.dz  # + 0.05
+            back_bbox_z = input_file.dz2  # - 0.1
+            print(len(input_file.pixels))
 
-        for i, pixel in enumerate(input_file.pixels):
-            unique = np.unique(pixel[pixel!=0])
-            x = (i % input_file.ndx) + input_file.nx
-            y = (i // input_file.ndx) + input_file.ny
-            key = f"{x}, {y}"
-            visualize_dict[key] = []
+            for i, pixel in enumerate(input_file.pixels):
+                unique = np.unique(pixel[pixel!=0])
+                x = (i % input_file.ndx) + input_file.nx
+                y = (i // input_file.ndx) + input_file.ny
+                key = f"{x}, {y}"
+                visualize_dict[key] = []
 
-            # sprawdzamy czy liczba przecięć jest parzysta
-            if unique.any() and len(unique)%2 == 0:
-                # obliczamy podstawowe parametry
-                first_surface = unique[0]
-                rd = first_surface - fornt_bbox_z
+                # sprawdzamy czy liczba przecięć jest parzysta
+                if unique.any() and len(unique)%2 == 0:
+                    # obliczamy podstawowe parametry
+                    first_surface = unique[0]
+                    rd = first_surface - fornt_bbox_z
 
-                # samplujemy punkty po promieniu
-                linspace_sampling(rd, fornt_bbox_z, back_bbox_z, num_samples, unique, visualize_dict, input_file, x, y, scene)
-                # obliczamy sdf
-                # punktom, które znajdują się za nieparzystą liczbą ścian przypisujemy wartość 0
-                # pozostałym punktom szukamy najbliższej powierzchni
-            else:
-                output_file.pixels.append(np.array([np.nan]))
-                visualize_dict[key].append([np.nan])
-                nans += 1
+                    # samplujemy punkty po promieniu
+                    linspace_sampling(rd, fornt_bbox_z, back_bbox_z, num_samples, unique, visualize_dict, input_file, x, y, scene)
+                    # obliczamy sdf
+                    # punktom, które znajdują się za nieparzystą liczbą ścian przypisujemy wartość 0
+                    # pozostałym punktom szukamy najbliższej powierzchni
+                else:
+                    output_file.pixels.append(np.array([np.nan]))
+                    visualize_dict[key].append([np.nan])
+                    nans += 1
 
-        output_file.save(visualize_dict)
+            output_file.save(visualize_dict)
 
-        print("Total:", len(visualize_dict))
-        print("Max saved sdf:", max_saved_sdf)
+            print("Total:", len(visualize_dict))
+            print("Max saved sdf:", max_saved_sdf)
 
-        print("\nNans:", nans)
-        print("Total:", samples)
-        print("Ratio:", format(nans/samples, ".00%"))
-        print("PROBLEMS", problems)
-        print("Samples", samples)
-        print("--------------------------------------")
-        # exit(777)
+            print("\nNans:", nans)
+            print("Total:", samples)
+            print("Ratio:", format(nans/samples, ".00%"))
+            print("PROBLEMS", problems)
+            print("Samples", samples)
+            print("--------------------------------------")
+        except:
+            print(f'FAILED TO LOAD: dataset_YCB_train/DepthDeepSDF/files/untitled_1_{b}_a{REJECTION_ANGLE}.txt')
+            # exit(777)
+

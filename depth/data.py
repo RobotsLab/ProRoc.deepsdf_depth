@@ -8,6 +8,7 @@ import os
 import random
 import torch
 import torch.utils.data
+import json
 
 import deep_sdf.workspace as ws
 # import workspace as ws
@@ -18,7 +19,7 @@ def get_instance_filenames(data_source, split):
         for class_name in split[dataset]:
             for instance_name in split[dataset][class_name]:
                 instance_filename = os.path.join(
-                    dataset, class_name, instance_name + ".txt"
+                    dataset, class_name, instance_name + ".json"
                 )
                 if not os.path.isfile(
                     os.path.join(data_source, ws.sdf_samples_subdir, instance_filename)
@@ -78,18 +79,36 @@ def read_sdf_samples_into_ram(filename):
 
 def unpack_sdf_samples(filename, subsample=None):
     try:
-        with open(filename, "r") as file:
-            lines = file.readlines()
+        # with open(filename, "r") as file:
+        #     lines = file.readlines()
 
-        # Remove "nan" values from the lines
-        cleaned_lines = [line.strip() for line in lines if "nan" not in line]
+        # # Remove "nan" values from the lines
+        # cleaned_lines = [line.strip() for line in lines if "nan" not in line]
 
-        # Convert the cleaned lines to a NumPy array
-        data_array = np.loadtxt(cleaned_lines)
+        # # Convert the cleaned lines to a NumPy array
+        # data_array = np.loadtxt(cleaned_lines)
+        # print(data_array)
+        with open(filename, 'r') as f:
+            input_file = json.load(f)
+
+        object_image = []
+
+        for key, value in input_file.items():
+            for row in value:
+                if np.any(np.isnan(row)):
+                    break
+                else:
+                    dd = row[0]
+                    rd = row[1]
+                    sdf = row[2]
+                    object_image.append(np.array([dd, rd, sdf]))
+
+        data_array = np.vstack(object_image)
+
         samples = torch.from_numpy(data_array)
 
-        if data_array[data_array < 0].any():
-            print(filename)
+        # if data_array[data_array < 0].any():
+        #     print(filename, 'TUTAJ')
 
         random_indices = (torch.rand(subsample) * data_array.shape[0]).long()
 

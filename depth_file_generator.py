@@ -136,8 +136,8 @@ if __name__ == '__main__':
 
     translations_and_rotations = []
 
-    for i in range(5):
-        translations_and_rotations.append(np.array([0.,0.,0.,0,0,i+90]))
+    for i in range(50):
+        translations_and_rotations.append(np.array([0.,0.,0.,0,0,i]))
 
 
     for i in translations_and_rotations:

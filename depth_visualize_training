@@ -138,12 +138,12 @@ def generate_input_pcd(input_file):
 
 if __name__ == '__main__':
     vis = o3d.visualization.Visualizer()
-    k = 50
-    rejection_angle = 0
+    k = 100
+    rejection_angle = 15
 
     for b in range(1, 5):
-        SOURCE_PATH = f'dataset_YCB_train/DepthDeepSDF/files/untitled_1_{b}.txt'
-        INPUT_PATH = f'dataset_YCB_train/DepthDeepSDF/files/untitled_1_{b}_inp_a{rejection_angle}_k{k}.json'
+        SOURCE_PATH = f'dataset_YCB_train/DepthDeepSDF/files/untitled_1_{b}_a{rejection_angle}.txt'
+        INPUT_PATH = f'dataset_YCB_train/DepthDeepSDF/files/untitled_1_{b}_a{rejection_angle}_k{k}_inp.json'
 
         data_file = DepthFile(SOURCE_PATH)
         load_depth_file(data_file)
@@ -190,11 +190,18 @@ if __name__ == '__main__':
         # object_color_array[normalized_sdf_array == 0, 1] = 1
         object_pcd.colors = o3d.utility.Vector3dVector(object_color_array)
 
-        pcd_points_ndarray = np.concatenate((np.asarray(depth_pcd.points), np.asarray(object_pcd.points)), axis=0)
-        pcd_colors_ndarray = np.concatenate((np.asarray(depth_pcd.colors), np.asarray(object_pcd.colors)), axis=0)
+        # pcd_points_ndarray = np.concatenate((np.asarray(depth_pcd.points), np.asarray(object_pcd.points)), axis=0)
+        # pcd_colors_ndarray = np.concatenate((np.asarray(depth_pcd.colors), np.asarray(object_pcd.colors)), axis=0)
+        # pcd = o3d.geometry.PointCloud()  # create point cloud object
+        # pcd.points = o3d.utility.Vector3dVector(pcd_points_ndarray)  # set pcd_np as the point cloud points
+        # pcd.colors = o3d.utility.Vector3dVector(pcd_colors_ndarray)
+        # origin = o3d.geometry.TriangleMesh.create_coordinate_frame(size=0.1)
+
+        # pcd_points_ndarray = np.concatenate((np.asarray(depth_pcd.points), np.asarray(object_pcd.points)), axis=0)
+        # pcd_colors_ndarray = np.concatenate((np.asarray(depth_pcd.colors), np.asarray(object_pcd.colors)), axis=0)
         pcd = o3d.geometry.PointCloud()  # create point cloud object
-        pcd.points = o3d.utility.Vector3dVector(pcd_points_ndarray)  # set pcd_np as the point cloud points
-        pcd.colors = o3d.utility.Vector3dVector(pcd_colors_ndarray)
+        pcd.points = o3d.utility.Vector3dVector(np.asarray(object_pcd.points))  # set pcd_np as the point cloud points
+        pcd.colors = o3d.utility.Vector3dVector(np.asarray(object_pcd.colors))
         origin = o3d.geometry.TriangleMesh.create_coordinate_frame(size=0.1)
 
         vis.create_window()
@@ -210,7 +217,7 @@ if __name__ == '__main__':
         vis.destroy_window()
 
         # o3d.visualization.draw_geometries([pcd, origin])
-        o3d.io.write_point_cloud(f'dataset_YCB_train/DepthDeepSDF/files/untitled_1_{b}_inp_a{rejection_angle}_k{k}.pcd', pcd)
+        o3d.io.write_point_cloud(f'dataset_YCB_train/DepthDeepSDF/files/untitled_1_{b}_inp_a{rejection_angle}_k{k}_sampled_points.pcd', pcd)
         
         # exit(777)
         

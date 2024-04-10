@@ -466,7 +466,6 @@ def main_function(experiment_directory, continue_from, batch_split):
             # print(sdf_data.size())
 
             sdf_data = sdf_data.reshape(-1, 3)
-            # print("SDF_DATA:", sdf_data, sdf_data.size())
 
             num_sdf_samples = sdf_data.shape[0]
 

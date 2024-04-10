@@ -54,7 +54,7 @@ class File():
         self.dz2 = dz2
 
     def save(self, view):
-        with open(os.path.join(self.destination_dir, self.name + '_' + str(view) + '_a{POWER_FACTOR}.txt'), 'w') as f:
+        with open(os.path.join(self.destination_dir, self.name + '_' + str(view) + f'_a{POWER_FACTOR}.txt'), 'w') as f:
             f.write(f"{' '.join(map(str, self.o_c_transformation))}\n")
             f.write(f'{self.f} {self.cx} {self.cy}\n')
             f.write(f'{self.Ndx} {self.Ndy}\n')
@@ -201,7 +201,7 @@ def stack_images(file, input_mesh, camera, view=0):
     
     depth_image = np.zeros((file.Ndy, file.Ndx, np.max(counts)))
 
-    gt = False
+    gt = True
     min_y = file.Ndy
     min_x = file.Ndx
     max_y = 0
@@ -330,7 +330,7 @@ if __name__ == '__main__':
         output_file.pixels.append(depth_image)
         output_file.save(view)
         output_file.pixels.clear()
-
+        exit(777)
         # w tym programie musi być liczenie ścianek na promieniu, jeżeli:
         # unique(intersection) % 2 = 0 promień zostaje
         # unique(intersection) % 2 = 1 promień jest odrzucany
