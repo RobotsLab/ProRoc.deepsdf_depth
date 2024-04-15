@@ -50,7 +50,7 @@ def find_mesh_in_directory(shape_dir):
     mesh_filenames = list(glob.iglob(shape_dir + "/**/*.obj")) + list(
         glob.iglob(shape_dir + "/*.obj")
     )
-    print(mesh_filenames[0])
+    # print(mesh_filenames[0])
     if len(mesh_filenames) == 0:
         raise NoMeshFileError()
     elif len(mesh_filenames) > 1:
@@ -64,14 +64,31 @@ def remove_nans(tensor):
 
 
 def read_sdf_samples_into_ram(filename):
-    with open(filename, "r") as file:
-        lines = file.readlines()
+    # with open(filename, "r") as file:
+    #     lines = file.readlines()
 
-    # Remove "nan" values from the lines
-    cleaned_lines = [line.strip() for line in lines if "nan" not in line]
+    # # Remove "nan" values from the lines
+    # cleaned_lines = [line.strip() for line in lines if "nan" not in line]
 
-    # Convert the cleaned lines to a NumPy array
-    data_array = np.loadtxt(cleaned_lines)
+    # # Convert the cleaned lines to a NumPy array
+    # data_array = np.loadtxt(cleaned_lines)
+
+    with open(filename, 'r') as f:
+        input_file = json.load(f)
+
+    object_image = []
+
+    for key, value in input_file.items():
+        for row in value:
+            if np.any(np.isnan(row)):
+                break
+            else:
+                dd = row[0]
+                rd = row[1]
+                sdf = row[2]
+                object_image.append(np.array([dd, rd, sdf]))
+
+    data_array = np.vstack(object_image)
     samples = torch.from_numpy(data_array)
 
     return samples

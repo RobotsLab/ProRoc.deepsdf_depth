@@ -216,7 +216,7 @@ if __name__ == "__main__":
     reconstruct_time = 0
     for ii, npz in enumerate(npz_filenames):
 
-        if "txt" not in npz:
+        if "json" not in npz:
             continue
 
         full_filename = os.path.join(args.data_source, ws.sdf_samples_subdir, npz)
@@ -224,7 +224,7 @@ if __name__ == "__main__":
         logging.debug("loading {}".format(npz))
 
         data_sdf = data.read_sdf_samples_into_ram(full_filename)
-
+        # print(data_sdf, full_filename)
         for k in range(repeat):
 
             if rerun > 1:

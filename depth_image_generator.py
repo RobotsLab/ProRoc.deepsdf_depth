@@ -9,6 +9,7 @@ from depth.camera import Camera
 from depth_file_generator import File as ViewsFile
 
 POWER_FACTOR = 10
+GT = False
 
 class File():
     def __init__(self, source_path, destination_dir=''):
@@ -201,7 +202,6 @@ def stack_images(file, input_mesh, camera, view=0):
     
     depth_image = np.zeros((file.Ndy, file.Ndx, np.max(counts)))
 
-    gt = True
     min_y = file.Ndy
     min_x = file.Ndx
     max_y = 0
@@ -233,7 +233,7 @@ def stack_images(file, input_mesh, camera, view=0):
 
             # power_factor the higher the less aggressive rejection
             probability = np.power(random.random(), 1 / POWER_FACTOR)
-            if gt:
+            if GT:
                 sin_angle = -1
 
             if probability >= sin_angle:

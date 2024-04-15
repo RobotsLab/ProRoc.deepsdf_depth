@@ -9,16 +9,19 @@ import time
 import torch
 import open3d as o3d
 import random
+import os
 
 import deep_sdf.utils
+from depth import data
 
 
 def create_mesh(
     decoder, latent_vec, filename, N=256, max_batch=32 ** 2, offset=None, scale=None, input_data=None
 ):
     start = time.time()
+    filename = filename[:-1]
     ply_filename = filename
-    print(filename)
+    # print(filename)
     decoder.eval()
 
     # NOTE: the voxel_origin is actually the (bottom, left, down) corner, not the middle
@@ -27,8 +30,11 @@ def create_mesh(
 
     overall_index = torch.arange(0, N ** 3, 1, out=torch.LongTensor())
 
-    samples = prepare_samples(input_data)
+    # samples = prepare_samples(input_data)
+    # print(samples, samples.size())
 
+    samples = samples_from_file(filename)
+    print(samples, samples.size())
 
     num_samples = N ** 2
 
@@ -49,7 +55,9 @@ def create_mesh(
 
     sdf_values = samples[:, 2]
     print("SDF VALUES:", sdf_values)
+    
     # tutaj wywołać funkcję
+
     save_sdf_samples(
         samples=samples,
         filename=filename
@@ -72,16 +80,18 @@ def create_mesh(
 
     end = time.time()
     print("sampling takes: %f" % (end - start))
-
-    convert_sdf_samples_to_ply(
-        sdf_values.data.cpu(),
-        voxel_origin,
-        voxel_size,
-        ply_filename + ".ply",
-        offset,
-        scale,
-    )
-
+    try:
+        convert_sdf_samples_to_ply(
+            sdf_values.data.cpu(),
+            voxel_origin,
+            voxel_size,
+            ply_filename + ".ply",
+            offset,
+            scale,
+        )
+    except:
+        print("UNABLE TO PROCEED MARCHING CUBES")
+        
 
 def convert_sdf_samples_to_ply(
     pytorch_3d_sdf_tensor,
@@ -162,8 +172,14 @@ def save_sdf_samples(
     data = {"pos": samples_numpy, "neg" : None}
     np.savez(filename + ".npz", **data)
     print(f"NPZ file saved in {filename}")
-    exit(777)
 
+def samples_from_file(filename):
+    base_path = "data_YCB/SdfSamples/dataset_YCB_test"
+    dirs = filename.split('/')
+    input_path = os.path.join(base_path, dirs[-2], dirs[-1][:-1] + '_query.json')
+    samples = data.read_sdf_samples_into_ram(input_path)
+    samples = samples.to(torch.float32)
+    return samples
 
 def prepare_samples(data):
     unique_rd, inverse_indices = np.unique(data[:, 0], return_inverse=True)
@@ -176,7 +192,7 @@ def prepare_samples(data):
     # second_column_values = np.hstack([np.linspace(0, 0.5, number_of_samples) for _ in range(len(unique_rd))])
     second_column_values = np.hstack([0.5 * np.random.rand(number_of_samples) for _ in range(len(unique_rd))])
 
-    print("SECOND COLUMN VALUES:", second_column_values, second_column_values.shape)
+    # print("SECOND COLUMN VALUES:", second_column_values, second_column_values.shape)
 
     # Reshape the arrays to have a single column
     first_column = repeated_values.reshape(-1, 1)
@@ -187,9 +203,9 @@ def prepare_samples(data):
     result_array = np.hstack((first_column, second_column, sdf))    
     result_tensor = torch.from_numpy(result_array)
     result_tensor = result_tensor.to(torch.float32)
-    print("INPUT")
-    for i in range(result_array.shape[0])[:20]:
-        print(result_array[i, :])
+    # print("INPUT")
+    # for i in range(result_array.shape[0])[:20]:
+    #     print(result_array[i, :])
     return result_tensor
 
 def original_sampling(N, overall_index, voxel_size, voxel_origin):

@@ -143,7 +143,7 @@ def save_sdf_samples(
 ):
     samples_numpy = np.asarray(samples)
     data = {"pos": samples_numpy[samples_numpy[:, 3] > 0], "neg" : samples_numpy[samples_numpy[:, 3] < 0]}
-    np.savez(filename + ".npz", **data)
+    np.savez(filename + "npz", **data)
     print(f"NPZ file saved in {filename}")
 
 def prepare_samples():

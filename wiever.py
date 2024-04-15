@@ -9,12 +9,13 @@ def array_to_pcd(array):
 def load(path):
     if path.endswith(".npz"):
         dict_data = np.load(path)
-        neg_data = dict_data[dict_data.files[1]]
+        # neg_data = dict_data[dict_data.files[1]]
         pos_data = dict_data[dict_data.files[0]]
-        data = np.concatenate([neg_data, pos_data])
-        print(data.shape)
+        print(pos_data, np.min(pos_data, axis=0), np.max(pos_data, axis=0), pos_data.shape)
+        # data = np.concatenate([neg_data, pos_data])
+        # print(data.shape)
 
-        return array_to_pcd(data)
+        return array_to_pcd(pos_data)
     elif path.endswith(".pcd"):
         pcd = o3d.io.read_point_cloud(path)
         return pcd
@@ -32,7 +33,7 @@ def visualize(*pcd):
     o3d.visualization.draw_geometries(pcd)
 
 if __name__ == '__main__':
-    path = "dataset_YCB_train/DepthDeepSDF/files/untitled_1_4_inp_a5_k100.pcd"
+    path = "data_YCB/SdfSamples/dataset_YCB_test/new_depth/untitled_1_35_a10_k150_inp_test.json"
     # path2 = "data_YCB/SdfSamples/dataset_YCB_train/sensors_depth/1ef68777bfdb7d6ba7a07ee616e34cd7.npz"
     point_cloud = load(path)
     # pcd2 = load(path2)
@@ -40,3 +41,6 @@ if __name__ == '__main__':
         visualize(point_cloud)
     else:
         print("File is empty")
+
+        # wczytać refernecyjny plik .txt aby pozyskać dane do przekształcenia w 3D
+        # dodać 'aureole' do okoła obiektu

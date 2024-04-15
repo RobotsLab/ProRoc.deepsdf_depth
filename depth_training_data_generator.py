@@ -61,9 +61,9 @@ class File():
         self.dz2 = dz2
 
     def save(self, dictionary):
-        with open(os.path.join(self.destination_dir, self.name + f'_k{K}_inp' +'.json'), "w") as outfile:
+        with open(os.path.join(self.destination_dir, self.name + f'_k{K}_inp_train' +'.json'), "w") as outfile:
             json.dump(dictionary, outfile)
-        print("Saved:", os.path.join(self.destination_dir, self.name + f'_k{K}_inp' +'.json'))
+        print("Saved:", os.path.join(self.destination_dir, self.name + f'_k{K}_inp_train' +'.json'))
 
 
 def load_depth_file(input_file):
@@ -132,6 +132,7 @@ def linspace_sampling(rd, fornt_bbox_z, back_bbox_z, num_samples, unique, visual
 
         if passed_surfaces % 2 == 1:
             sdf = 0
+            
         elif len(unique) > passed_surfaces:
             z = sample
             x = (input_file.cx - u) * z / input_file.f  # y on image is x in real world
@@ -167,7 +168,8 @@ def linspace_sampling(rd, fornt_bbox_z, back_bbox_z, num_samples, unique, visual
         visualize_dict[key].append([rd, dd, sdf])
 
 if __name__ == '__main__':
-    for b in range(50):
+    bb = [5, 15, 26, 35]
+    for b in bb:
         try:
             SOURCE_PATH = f'dataset_YCB_train/DepthDeepSDF/files/untitled_1_{b}_a{REJECTION_ANGLE}.txt'
             GT_PATH = f'dataset_YCB_train/DepthDeepSDF/files/untitled_1_{b}_gt.txt'
