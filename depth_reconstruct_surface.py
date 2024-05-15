@@ -139,12 +139,21 @@ if __name__ == '__main__':
     vis = o3d.visualization.Visualizer()
     k = 150
     rejection_angle = 10
-    bb = [5, 15, 26, 35]
-
-    for b in bb:
-        SOURCE_PATH = f'dataset_YCB_train/DepthDeepSDF/files/untitled_1_{b}_a{rejection_angle}.txt'
-        INPUT_PATH = f'dataset_YCB_train/DepthDeepSDF/files/untitled_1_{b}_a{rejection_angle}_k{k}_inp_train.json'
-        QUERY_PATH = f'dataset_YCB_train/DepthDeepSDF/files/untitled_1_{b}_a{rejection_angle}_k{k}_inp_test_query.npz'
+    aa = [4, 4, 5, 6]
+    bb = [7, 14, 16, 16]
+    names_txt = [
+        '2c1df84ec01cea4e525b133235812833_5_a20',
+        '4227b58665eadcefc0dc3ed657ab97f0_8_a20',
+        '11547e8d8f143557525b133235812833_5_a20',
+        '4b32d2c623b54dd4fe296ad57d60d898_0_a20',
+        'untitled_4_7_a10',
+        'untitled_4_14_a10'
+    ]
+    for name in names_txt:
+        SOURCE_PATH = f'dataset_YCB_train/DepthDeepSDF/files/{name}.txt'
+        INPUT_PATH = f'dataset_YCB_train/DepthDeepSDF/files/{name}_k150_inp_train.json'
+        QUERY_PATH = f'dataset_YCB_train/DepthDeepSDF/files/{name}_k150_inp_test.npz'
+        print(QUERY_PATH.split('/')[-1])
         npz = load_querry_points(QUERY_PATH)
 
         data_file = DepthFile(SOURCE_PATH)
@@ -224,7 +233,7 @@ if __name__ == '__main__':
         vis.destroy_window()
 
         # o3d.visualization.draw_geometries([pcd, origin])
-        o3d.io.write_point_cloud(f'dataset_YCB_train/DepthDeepSDF/files/untitled_1_{b}_a{rejection_angle}_k{k}_inp_test_query.pcd', pcd)
+        # o3d.io.write_point_cloud(f'dataset_YCB_train/DepthDeepSDF/files/untitled_{a}_{b}_a{rejection_angle}_k{k}_inp_test_query.pcd', pcd)
         # exit(777)        
         #nasycenie nieliniowe kolorów do wizualizacji
         # dane do json

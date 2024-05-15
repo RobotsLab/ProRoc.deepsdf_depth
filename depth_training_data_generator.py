@@ -16,7 +16,7 @@ from depth_image_generator import load_generator_file, translate, scale, rotate
 
 
 K = 150
-REJECTION_ANGLE = 10
+REJECTION_ANGLE = 20
 
 class File():
     def __init__(self, source_path, destination_dir):
@@ -168,13 +168,25 @@ def linspace_sampling(rd, fornt_bbox_z, back_bbox_z, num_samples, unique, visual
         visualize_dict[key].append([rd, dd, sdf])
 
 if __name__ == '__main__':
-    bb = [5, 15, 26, 35]
-    for b in bb:
-        try:
-            SOURCE_PATH = f'dataset_YCB_train/DepthDeepSDF/files/untitled_1_{b}_a{REJECTION_ANGLE}.txt'
-            GT_PATH = f'dataset_YCB_train/DepthDeepSDF/files/untitled_1_{b}_gt.txt'
-            DESTINATION_PATH = 'dataset_YCB_train/DepthDeepSDF/files'
-            # przygotować jeden plik z punktami gt i wczytać go do stworzenia pcd
+    category = 'mug'
+    names_txt = [name for name in os.listdir(f'dataset_YCB_train/DepthDeepSDF/files/{category}') if '_' in name and name.endswith(".txt")]
+    DESTINATION_PATH = f'dataset_YCB_train/DepthDeepSDF/files/{category}'
+    print(names_txt)
+    exit(777)
+    file_names = os.listdir(DESTINATION_PATH)
+    # print(file_names)
+    # exit(777)
+    for name_txt in file_names:
+        if False: #  not name_txt.endswith(f'_a{REJECTION_ANGLE}.txt') or name_txt or
+            print('xd')
+        else:
+    # for a in range(1, 7):
+        # for b in range(20):
+            # try:
+            name_txt = '4b32d2c623b54dd4fe296ad57d60d898_0_a20.txt'
+            SOURCE_PATH = os.path.join(DESTINATION_PATH, name_txt)
+            GT_PATH = SOURCE_PATH.replace(f'_a{REJECTION_ANGLE}', '_gt')
+            print(SOURCE_PATH, GT_PATH)
 
             input_file = DepthFile(SOURCE_PATH)
             load_depth_file(input_file)
@@ -244,7 +256,7 @@ if __name__ == '__main__':
             print("PROBLEMS", problems)
             print("Samples", samples)
             print("--------------------------------------")
-        except:
-            print(f'FAILED TO LOAD: dataset_YCB_train/DepthDeepSDF/files/untitled_1_{b}_a{REJECTION_ANGLE}.txt')
-            # exit(777)
+            # except:
+                # print(f'FAILED TO LOAD: dataset_YCB_train/DepthDeepSDF/files/untitled_1_{b}_a{REJECTION_ANGLE}.txt')
+                # exit(777)
 

@@ -3,13 +3,14 @@ import open3d as o3d
 import matplotlib.pyplot as plt
 import copy
 import random
+import cv2
 
 from depth.utils import *
 from depth.camera import Camera
 from depth_file_generator import File as ViewsFile
 
-POWER_FACTOR = 10
-GT = False
+POWER_FACTOR = 20
+GT = True
 
 class File():
     def __init__(self, source_path, destination_dir=''):
@@ -55,17 +56,32 @@ class File():
         self.dz2 = dz2
 
     def save(self, view):
-        with open(os.path.join(self.destination_dir, self.name + '_' + str(view) + f'_a{POWER_FACTOR}.txt'), 'w') as f:
-            f.write(f"{' '.join(map(str, self.o_c_transformation))}\n")
-            f.write(f'{self.f} {self.cx} {self.cy}\n')
-            f.write(f'{self.Ndx} {self.Ndy}\n')
-            f.write(f'{self.ds}\n')
-            f.write(f'{self.nx} {self.ny} {self.z}\n')
-            f.write(f'{self.ndx} {self.ndy} {self.dz} {self.dz2}\n')
-            for image in self.pixels:
-                for row in image:
-                    for pixel in row:
-                        f.write(f"{' '.join(map(str, pixel))}\n")
+        if GT:
+            with open(os.path.join(self.destination_dir, self.name + '_' + str(view) + f'_gt.txt'), 'w') as f:
+                f.write(f"{' '.join(map(str, self.o_c_transformation))}\n")
+                f.write(f'{self.f} {self.cx} {self.cy}\n')
+                f.write(f'{self.Ndx} {self.Ndy}\n')
+                f.write(f'{self.ds}\n')
+                f.write(f'{self.nx} {self.ny} {self.z}\n')
+                f.write(f'{self.ndx} {self.ndy} {self.dz} {self.dz2}\n')
+                for image in self.pixels:
+                    for row in image:
+                        for pixel in row:
+                            f.write(f"{' '.join(map(str, pixel))}\n")
+            print("FILE SAVED:", os.path.join(self.destination_dir, self.name + '_' + str(view) + f'_gt.txt'))
+        else:
+            with open(os.path.join(self.destination_dir, self.name + '_' + str(view) + f'_a{POWER_FACTOR}.txt'), 'w') as f:
+                f.write(f"{' '.join(map(str, self.o_c_transformation))}\n")
+                f.write(f'{self.f} {self.cx} {self.cy}\n')
+                f.write(f'{self.Ndx} {self.Ndy}\n')
+                f.write(f'{self.ds}\n')
+                f.write(f'{self.nx} {self.ny} {self.z}\n')
+                f.write(f'{self.ndx} {self.ndy} {self.dz} {self.dz2}\n')
+                for image in self.pixels:
+                    for row in image:
+                        for pixel in row:
+                            f.write(f"{' '.join(map(str, pixel))}\n")
+            print("FILE SAVED:", os.path.join(self.destination_dir, self.name + '_' + str(view) + f'_a{POWER_FACTOR}.txt'))
 
 
 def set_camera(input_file, output_file):
@@ -162,6 +178,109 @@ def find_angle(v1, v2):
     angle = np.rad2deg(np.arccos(np.clip(c, -1, 1)))
     return angle
 
+def triangle_area_3d(vertices):
+    """
+    Compute the area of a triangle in 3D space given its vertices.
+    
+    Args:
+    - vertices (np.ndarray): Array of shape (3, 3) containing the vertices of the triangle.
+    
+    Returns:
+    - float: Area of the triangle.
+    """
+    # Get vectors representing two sides of the triangle
+    AB = vertices[1] - vertices[0]
+    AC = vertices[2] - vertices[0]
+    
+    # Compute the cross product
+    cross_product = np.cross(AB, AC)
+    
+    # Compute the magnitude of the cross product
+    area = 0.5 * np.linalg.norm(cross_product)
+    
+    return area
+
+def visualize_odds(origin_ray_vector, ray_vector, triangles_id, mesh, hits):
+    # create pcd and add all points along the ray to pcd - lol we have origin point and vector
+    # get vertices for certain vertices
+    points_along_ray = np.array([origin_ray_vector + t * ray_vector for t in np.linspace(1, 2, 300)])
+    pcd = o3d.geometry.PointCloud()  # create point cloud object
+    pcd.points = o3d.utility.Vector3dVector(points_along_ray)  # set pcd_np as the point cloud points
+    # Create a subset mesh containing only the triangles with IDs in `triangle_id`
+    subset_mesh = o3d.geometry.TriangleMesh()
+    subset_mesh.vertices = mesh.vertices
+    max_area = 0
+    triangles_verts = {}
+
+    for i, triangle_id in enumerate(triangles_id):
+        verts_id = mesh.triangles[triangle_id]
+        mesh_vertices = np.asarray(subset_mesh.vertices)
+        triangle_vertices = mesh_vertices[verts_id]
+        # Convert vertices to a tuple so they can be used as dictionary keys
+        verts_key = tuple(sorted(map(tuple, triangle_vertices)))
+        # Append triangle ID to the list of triangles with the same vertices
+        triangles_verts[verts_key] = [hits[i]]
+        # max_area = max(triangle_area_3d(triangle_vertices), max_area)
+    
+    unique_hits = []
+    for verts, hit in triangles_verts.items():
+        # print("Vertices:", verts)
+        # print("Triangle IDs:", hit)
+        # print()
+        unique_hits.append(hit)
+
+    # if len(unique_hits) % 2 != 0:
+    #     visualize_verts = []
+    #     for i in range(len(unique_hits)):
+    #         print("TRIANGLE:", triangles_id[i])
+    #         print("VERTICES:", list(triangles_verts.keys())[i])
+    #         print("HITS:", unique_hits[i])
+    #         verts_id = mesh.triangles[triangles_id[i]]
+    #         visualize_verts.append(verts_id)
+    #     triangles_id = np.row_stack(visualize_verts)
+    #     subset_mesh.triangles = o3d.utility.Vector3iVector(triangles_id)
+    #     # Visualize the subset mesh
+    #     o3d.visualization.draw_geometries([mesh, pcd])
+
+    return unique_hits
+    
+def halo(img):
+    img[img == np.inf] = 0
+    img = img.astype(np.float32)
+    
+    # Define the kernel for dilation
+    kernel = np.ones((3,3),np.uint8)  # Adjust the kernel size as needed
+
+    # Perform dilation on the image
+    img_dilated = cv2.dilate(img, kernel)
+
+    # Calculate the difference between the dilated image and the original image
+    img_diff = cv2.absdiff(img_dilated, img)
+    # threshold_diff = img_diff > 1.0
+    # img_diff = threshold_diff.astype(np.uint8) * 255
+
+
+    # Calculate the number of new pixels that occurred after dilation
+    # num_new_pixels = np.count_nonzero(img_diff)
+
+    # # Display the dilated image and the difference image
+    # cv2.imshow('Dilated Image', img_dilated)
+    # cv2.waitKey(0)
+    # cv2.destroyAllWindows()
+    # cv2.imshow('Difference Image', img_diff)
+    # cv2.waitKey(0)
+    # cv2.destroyAllWindows()
+    # plt.imshow(img_dilated, cmap='gray')
+    # plt.title('img_dilated')
+    # plt.show()
+    # plt.imshow(img_diff, cmap='gray')
+    # plt.title('img_diff')
+    # plt.show()
+    # plt.imshow(img, cmap='gray')
+    # plt.title('img')
+    # plt.show()
+    return img_diff
+
 def stack_images(file, input_mesh, camera, view=0):
     '''SOLVED
     Gdy któryś z promieni pierwszy dotknie następnego trójkąta, ten trójkąt nie zostanie zarejestrowany przez sąsiedni promień.
@@ -188,9 +307,9 @@ def stack_images(file, input_mesh, camera, view=0):
     t_hit = lx['t_hit'].numpy()
     ray_ids = lx['ray_ids'].numpy()
     primitive_ids = lx['primitive_ids'].numpy()
-    normals = ans['primitive_normals'].numpy()
+    img = ans['t_hit'].numpy()
     unique_ray_ids, counts = np.unique(ray_ids, return_counts=True)
-
+    diff_img = halo(img)
     # Create a dictionary to store distances for each ray
     distances_dict = {ray_id: ([], [], []) for ray_id in unique_ray_ids}
 
@@ -202,69 +321,106 @@ def stack_images(file, input_mesh, camera, view=0):
     
     depth_image = np.zeros((file.Ndy, file.Ndx, np.max(counts)))
 
+    # mask = diff_img != 0
+    # depth_image[mask, 0] = 255
+    depth_image[:, :, 0] = diff_img[:,:]
+    num_new_pixels = np.count_nonzero(depth_image[:, :, 0])
+    print("New points from halo:", num_new_pixels)
+    # plt.imshow(depth_image[:, :, 0], cmap='gray')
+    # plt.title('depth_image with only diff image')
+    # plt.show()
     min_y = file.Ndy
     min_x = file.Ndx
     max_y = 0
     max_x = 0
-    min_angle = 100
-    max_angle = 0
+    min_intersection_angle = 100
+    max_intersection_angle = 0
     rejected_angles = 0
     odd = 0
     sin_angles = []
     angles_plot = []
+    num_hits = {}
 
     for key in distances_dict.keys():
-        hits, ray_id, triangle_id = distances_dict[key]
+        hits, ray_id, triangles_id = distances_dict[key]
         y = key // file.Ndx
         x = key % file.Ndx
-        depth_values = np.asarray(hits)
+        ray_vector = np_rays[y, x, -3:]  
+        origin_ray_vector = np_rays[y, x, :3]  # array with ray vector starting point
 
+        # lists for visualization
         correct_hits = []
         correct_angles_and_sin = []
+
+        # rejection sampling for rays
         for i in range(len(hits)):
-            ray_vector = np_rays[y, x, -3:]
-            normal_vector = triangle_normals[triangle_id[i]]
-            angle = find_angle(normal_vector, ray_vector)
-            min_angle = min(angle, min_angle)
-            max_angle = max(angle, max_angle)
+            surface_normal_vector = triangle_normals[triangles_id[i]]
+            intersection_angle = find_angle(surface_normal_vector, ray_vector)  # 90 means that surface is parallel to ray
+            min_intersection_angle = min(intersection_angle, min_intersection_angle)
+            max_intersection_angle = max(intersection_angle, max_intersection_angle)
 
-            # abs sinus z kąta angle
-            sin_angle = abs(np.sin(np.deg2rad(angle)))
+            # absolute value of sinus from intersection angle (ray-surface)
+            sin_angle = abs(np.sin(np.deg2rad(intersection_angle)))
 
-            # power_factor the higher the less aggressive rejection
-            probability = np.power(random.random(), 1 / POWER_FACTOR)
+            # if grand truth needed
             if GT:
                 sin_angle = -1
 
+            # power_factor the higher the less aggressive rejection
+            probability = np.power(random.random(), 1 / POWER_FACTOR)
             if probability >= sin_angle:
                 correct_hits.append(hits[i])
-                correct_angles_and_sin.append((angle, sin_angle))
+                correct_angles_and_sin.append((intersection_angle, sin_angle))
             else:
                 rejected_angles += 1
 
+        unique_hits, indices_hits = np.unique(hits, axis=0, return_index=True)
+
+        # number or intersections and quality check
         if len(hits) == len(correct_hits) and len(hits) % 2 == 0:
             for i in range(len(correct_hits)):
                 depth_image[y, x, i] = hits[i]
                 angles_plot.append(correct_angles_and_sin[i][0])
                 sin_angles.append(correct_angles_and_sin[i][1])
-        elif len(hits) % 2 == 1:
-            odd += 1
+        elif len(hits) == len(correct_hits) and len(unique_hits) % 2 == 0:
+            for i, idx in enumerate(sorted(indices_hits)):
+                depth_image[y, x, i] = hits[idx]
+                # angles_plot.append(correct_angles_and_sin[i][0])
+                # sin_angles.append(correct_angles_and_sin[i][1])
+        elif len(hits) == len(correct_hits) and len(hits) % 2 == 1:
+            # return hits if len(hits) jest parzysta to spoko, else odds += 1
+            unique_hits_new = visualize_odds(origin_ray_vector, ray_vector, triangles_id, mesh, hits)
+            if len(unique_hits_new) % 2 == 0:
+                for i, hit in enumerate(unique_hits_new):
+                    depth_image[y, x, i] = hit[0]
+            else:
+                odd += 1
 
+        non_zero_hits = np.argwhere(depth_image[y, x, :])
+        if len(non_zero_hits) in num_hits.keys():
+            num_hits[len(non_zero_hits)] += 1
+        else:
+            num_hits[len(non_zero_hits)] = 0
 
         min_y = min(min_y, y)
         min_x = min(min_x, x)
         max_y = max(max_y, y)
         max_x = max(max_x, x)
-        # print(depth_image.shape)
+        # print(depth_image.shape)[ 1.0606601 -0.         1.0606601]
     # plt.scatter(x=angles_plot, y=sin_angles)
     # plt.show()
-
-    print(f"Angle range from {90-view} to {90+view}\nSamples removed due to angle: {rejected_angles} Minimum angle: {min_angle} Maximum angle: {max_angle}")
+    # num_new_pixels = np.count_nonzero(depth_image[:, :, 0])
+    # print(num_new_pixels)
+    # plt.imshow(depth_image[:, :, 0], cmap='gray')
+    # plt.title('depth_image first layer')
+    # plt.show()
+    print(f"Angle range from {90-view} to {90+view}\nSamples removed due to angle: {rejected_angles} Minimum angle: {min_intersection_angle} Maximum angle: {max_intersection_angle}")
     print("Odds:", odd)
     print("Length dict: ", len(distances_dict))
     odds_ratio = 100 * odd / (odd + len(distances_dict))
     print("Odds ratio:", round(odds_ratio, 2), "%")
-
+    for key, value in num_hits.items():
+        print(f"Intersected triangles: {key}, Intersections: {value}")
     if odds_ratio >= 0.5:
         print("DISMISSED!\n")
         return None
@@ -280,59 +436,102 @@ def stack_images(file, input_mesh, camera, view=0):
     return depth_image[file.ny:file.ny+file.ndy, file.nx:file.nx+file.ndx, :]
 
 if __name__ == '__main__':
-    SOURCE_PATH = 'dataset_YCB_train/DepthDeepSDF/files/untitled_1.txt'
-    MESH_PATH = 'dataset_YCB_train/DepthDeepSDF/1a1c0a8d4bad82169f0594e65f756cf5/models/untitled.ply'
-    DESTINATION_PATH = 'dataset_YCB_train/DepthDeepSDF/files/'
+    categories = ['mug', 'laptop']
+    for category in categories:
+        names_txt = [name for name in os.listdir(f'dataset_YCB_train/DepthDeepSDF/files/{category}') if not '_' in name]
+        saved_files = 0
+        for current_iteration, name_txt in enumerate(names_txt):
+            SOURCE_PATH = os.path.join(f'dataset_YCB_train/DepthDeepSDF/files/{category}', name_txt)
+            MESH_PATH =  os.path.join(f'ShapeNetCore/{category}', name_txt.split('.')[0], 'models/model_normalized.obj')
+            DESTINATION_PATH = f'dataset_YCB_train/DepthDeepSDF/files/{category}'
 
-    input_file = ViewsFile(SOURCE_PATH)
-    load_generator_file(input_file)
+            input_file = ViewsFile(SOURCE_PATH)
+            load_generator_file(input_file)
 
-    output_file = File(SOURCE_PATH, DESTINATION_PATH)
-    output_file.o_c_transformation = input_file.o_c_transformation
+            output_file = File(SOURCE_PATH, DESTINATION_PATH)
+            output_file.o_c_transformation = input_file.o_c_transformation
 
-    input_mesh = load_file(MESH_PATH)
-    centered_mesh = translate(input_mesh, input_file.s_o_transformation[:3])
-    scaled_mesh, _ = scale(centered_mesh, input_file.scale)
+            input_mesh = load_file(MESH_PATH)
+            input_mesh = rotate(input_mesh, np.array([90, 0, 0]))
+            centered_mesh = translate(input_mesh, input_file.s_o_transformation[:3])
+            scaled_mesh, _ = scale(centered_mesh, input_file.scale)
+            print()
+            print("===================================================")
+            print("SOURCE PATH", SOURCE_PATH)
+            for view, frame in enumerate(input_file.frames):
+                if name_txt.split('.')[0] + f'_{view}_a{POWER_FACTOR}.txt' in os.listdir(f'dataset_YCB_train/DepthDeepSDF/files/{category}'):
+                    continue
+                # if not name_txt.split('.')[0] + f'_{view}_gt.txt' in os.listdir(f'dataset_YCB_train/DepthDeepSDF/files/{category}'):
+                #     continue
+                print("VIEW:", view)
+                scaled_mesh = translate(scaled_mesh, frame[:3])
+                scaled_mesh = rotate(scaled_mesh, frame[3:])
 
+                mesh = o3d.t.geometry.TriangleMesh.from_legacy(scaled_mesh)
+                scene = o3d.t.geometry.RaycastingScene()
+                scene.add_triangles(mesh)
 
-    for view, frame in enumerate(input_file.frames):
-        scaled_mesh = translate(scaled_mesh, frame[:3])
-        scaled_mesh = rotate(scaled_mesh, frame[3:])
+                camera = set_camera(input_file, output_file)
+                rays = camera.raycasting()
+                
+                # Depth image.
+                ans = scene.cast_rays(rays)
+                img = ans['t_hit'].numpy()
+                ids = ans["primitive_ids"].numpy()
 
-        mesh = o3d.t.geometry.TriangleMesh.from_legacy(scaled_mesh)
-        scene = o3d.t.geometry.RaycastingScene()
-        scene.add_triangles(mesh)
+                img[img == np.inf] = 0
+                img = img.astype(np.float32)
 
-        camera = set_camera(input_file, output_file)
-        rays = camera.raycasting()
-        
-        # Depth image.
-        ans = scene.cast_rays(rays)
-        img = ans['t_hit'].numpy()
-        ids = ans["primitive_ids"].numpy()
+                # plt.imshow(img, cmap='gray')
+                # plt.title('Input camera image')
+                # plt.show()
 
-        img[img == np.inf] = 0
-        img = img.astype(np.float32)
+                depth_image = stack_images(output_file, scaled_mesh, camera)
+                print(f"CURRENT ITERATION: {current_iteration} OUT OF {len(names_txt)}")
+                if depth_image is None:
+                    print("DEPTH IMAGE IS NONE", name_txt)
+                    break
+                elif view == 9:
+                    saved_files += 1
+                print(f"SAVED FILES: {saved_files}\n")
+                
+                # plt.imshow(depth_image[:,:,0], cmap='gray')
+                # plt.title('Output camera image')
+                # plt.show()
+                plt.imshow(img, cmap='gray')
+                plt.title('Input camera image')
+                # plt.show()
+                if GT:
+                    plt.savefig(os.path.join(output_file.destination_dir, output_file.name + '_' + str(view) + f'_gt.png'))
+                else:
+                    plt.savefig(os.path.join(output_file.destination_dir, output_file.name + '_' + str(view) + f'_a{POWER_FACTOR}.png'))
+                scaled_mesh = translate(scaled_mesh, -frame[:3])
+                scaled_mesh = rotate(scaled_mesh, -frame[3:])
 
-        # plt.imshow(img, cmap='gray')
-        # plt.title('Pionhole camera image')
-        # plt.show()
-        depth_image = stack_images(output_file, scaled_mesh, camera)
-        if depth_image is None:
-            continue
-        # plt.imshow(depth_image[:,:,0], cmap='gray')
-        # plt.title('Pionhole camera image')
-        # plt.show()
+                output_file.pixels.append(depth_image)
+                output_file.save(view)
+                output_file.pixels.clear()
+            if saved_files == 10:
+                break
+            # w tym programie musi być liczenie ścianek na promieniu, jeżeli:
+            # unique(intersection) % 2 = 0 promień zostaje
+            # unique(intersection) % 2 = 1 promień jest odrzucany
+            # 100 * odrzucone promienie / wszystkie promienie > 5 widok jest odrzucony
+            
+            # na majówke
+            
+            # 1. zrobić visual debigung
+            # 1.1 pokazać konkretny promień z trójkątami które są przecinane
+            # 1.2 pokazać trójkąty na promieniu - umieścić na promieniu gęstą ilość punktów żeby zwizualizować promień
+            # 2. wygenerować bardzo gęstą chmurę punktów z normalnymi
 
-        scaled_mesh = translate(scaled_mesh, -frame[:3])
-        scaled_mesh = rotate(scaled_mesh, -frame[3:])
+            # aureola
+            # telefon, aprat, miska, kubek, butelka, laptop - przedmioty biurkowe
+            # zmierzyć metryki
 
-        output_file.pixels.append(depth_image)
-        output_file.save(view)
-        output_file.pixels.clear()
-        exit(777)
-        # w tym programie musi być liczenie ścianek na promieniu, jeżeli:
-        # unique(intersection) % 2 = 0 promień zostaje
-        # unique(intersection) % 2 = 1 promień jest odrzucany
-        # 100 * odrzucone promienie / wszystkie promienie > 5 widok jest odrzucony
-        
+            # bowls
+            # 1b4d7803a3298f8477bdcb8816a3fac9_0_gt
+            # 12ddb18397a816c8948bef6886fb4ac_0_gt
+            # 292d2dda9923752f3e275dc4ab785b9f_0_gt
+            # 11547e8d8f143557525b133235812833_0_gt
+            # 260545503087dc5186810055962d0a91_0_gt
