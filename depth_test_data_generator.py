@@ -16,7 +16,8 @@ from depth_image_generator import load_generator_file, translate, scale, rotate
 
 
 K = 150
-REJECTION_ANGLE = 10
+REJECTION_ANGLE = 25
+QUERY = True
 
 class File():
     def __init__(self, source_path, destination_dir):
@@ -61,9 +62,13 @@ class File():
         self.dz2 = dz2
 
     def save(self, dictionary):
-        with open(os.path.join(self.destination_dir, self.name + f'_k{K}_inp_test' +'.json'), "w") as outfile:
+        if QUERY:
+            save_path = os.path.join(self.destination_dir, self.name + f'_k{K}_inp_test_query' +'.json')
+        else:
+            save_path = os.path.join(self.destination_dir, self.name + f'_k{K}_inp_test' +'.json')
+        with open(save_path, "w") as outfile:
             json.dump(dictionary, outfile)
-        print("Saved:", os.path.join(self.destination_dir, self.name + f'_k{K}_inp_test' +'.json'))
+        print("Saved:", save_path)
 
 
 def load_depth_file(input_file):
@@ -131,60 +136,87 @@ def linspace_sampling(rd, fornt_bbox_z, back_bbox_z, num_samples, unique, visual
             if sample > point_z:
                 passed_surfaces += 1
 
-        if passed_surfaces >= 2:
-            continue
-
-        if passed_surfaces % 2 == 1:
-            sdf = 0
-            
-        elif len(unique) > passed_surfaces:
-            z = sample
-            x = (input_file.cx - u) * z / input_file.f  # y on image is x in real world
-            y = (input_file.cy - v) * z / input_file.f  # x on image is y in real world
-            # distances, ndx = tree.query(np.array([x, y, z]), k=1)  # distances is the same as sdf
-
-            query_point = o3d.core.Tensor([[x, y, z]], dtype=o3d.core.Dtype.Float32)
-
-            # Compute distance of the query point from the surface
-            sdf = scene.compute_distance(query_point).item()
-
-            # rejection sampling
-            sdf = rejection_sampling(sdf)
-            if sdf < 0:
+        if not QUERY:
+            if passed_surfaces >= 2:
                 continue
 
+            if passed_surfaces % 2 == 1:
+                sdf = 0
+                
+            elif len(unique) > passed_surfaces:
+                z = sample
+                x = (input_file.cx - u) * z / input_file.f  # y on image is x in real world
+                y = (input_file.cy - v) * z / input_file.f  # x on image is y in real world
+                # distances, ndx = tree.query(np.array([x, y, z]), k=1)  # distances is the same as sdf
+
+                query_point = o3d.core.Tensor([[x, y, z]], dtype=o3d.core.Dtype.Float32)
+
+                # Compute distance of the query point from the surface
+                sdf = scene.compute_distance(query_point).item()
+
+                # rejection sampling
+                sdf = rejection_sampling(sdf)
+                if sdf < 0:
+                    continue
+
+            else:
+                z = sample
+                x = (input_file.cx - u) * z / input_file.f  # y on image is x in real world
+                y = (input_file.cy - v) * z / input_file.f  # x on image is y in real world
+                # distances, ndx = tree.query(np.array([x, y, z]), k=1)  # distances is the same as sdf
+
+                query_point = o3d.core.Tensor([[x, y, z]], dtype=o3d.core.Dtype.Float32)
+
+                # Compute distance of the query point from the surface
+                sdf = scene.compute_distance(query_point).item()
+
+                # rejection sampling
+                sdf = rejection_sampling(sdf)
+                if sdf < 0:
+                    continue
         else:
-            z = sample
-            x = (input_file.cx - u) * z / input_file.f  # y on image is x in real world
-            y = (input_file.cy - v) * z / input_file.f  # x on image is y in real world
-            # distances, ndx = tree.query(np.array([x, y, z]), k=1)  # distances is the same as sdf
-
-            query_point = o3d.core.Tensor([[x, y, z]], dtype=o3d.core.Dtype.Float32)
-
-            # Compute distance of the query point from the surface
-            sdf = scene.compute_distance(query_point).item()
-
-            # rejection sampling
-            sdf = rejection_sampling(sdf)
-            if sdf < 0:
-                continue
+            sdf = 0
 
         visualize_dict[key].append([rd, dd, sdf])
 
 if __name__ == '__main__':
-    names_txt = [
-        'dataset_YCB_train/DepthDeepSDF/files/2c1df84ec01cea4e525b133235812833_5_a20.txt',
-        'dataset_YCB_train/DepthDeepSDF/files/4227b58665eadcefc0dc3ed657ab97f0_8_a20.txt',
-        'dataset_YCB_train/DepthDeepSDF/files/11547e8d8f143557525b133235812833_5_a20.txt',
-        'dataset_YCB_train/DepthDeepSDF/files/4b32d2c623b54dd4fe296ad57d60d898_0_a20.txt'
+    train_new4_bottle = [
+    "dataset_YCB_train/DepthDeepSDF/files/bottle/10f709cecfbb8d59c2536abb1e8e5eab_4_a25_k150_inp_train",
+    "dataset_YCB_train/DepthDeepSDF/files/bottle/10f709cecfbb8d59c2536abb1e8e5eab_9_a25_k150_inp_train",
+    "dataset_YCB_train/DepthDeepSDF/files/bottle/13d991326c6e8b14fce33f1a52ee07f2_4_a25_k150_inp_train",
+    "dataset_YCB_train/DepthDeepSDF/files/bottle/13d991326c6e8b14fce33f1a52ee07f2_9_a25_k150_inp_train",
+    "dataset_YCB_train/DepthDeepSDF/files/bottle/109d55a137c042f5760315ac3bf2c13e_4_a25_k150_inp_train",
+    "dataset_YCB_train/DepthDeepSDF/files/bottle/109d55a137c042f5760315ac3bf2c13e_9_a25_k150_inp_train",
+    "dataset_YCB_train/DepthDeepSDF/files/bottle/1349b2169a97a0ff54e1b6f41fdd78a_4_a25_k150_inp_train",
+    "dataset_YCB_train/DepthDeepSDF/files/bottle/1349b2169a97a0ff54e1b6f41fdd78a_9_a25_k150_inp_train",
+    "dataset_YCB_train/DepthDeepSDF/files/bowl/1b4d7803a3298f8477bdcb8816a3fac9_4_a25_k150_inp_train",
+    "dataset_YCB_train/DepthDeepSDF/files/bowl/1b4d7803a3298f8477bdcb8816a3fac9_9_a25_k150_inp_train",
+    "dataset_YCB_train/DepthDeepSDF/files/bowl/2c1df84ec01cea4e525b133235812833_4_a25_k150_inp_train",
+    "dataset_YCB_train/DepthDeepSDF/files/bowl/2c1df84ec01cea4e525b133235812833_9_a25_k150_inp_train",
+    "dataset_YCB_train/DepthDeepSDF/files/bowl/12ddb18397a816c8948bef6886fb4ac_4_a25_k150_inp_train",
+    "dataset_YCB_train/DepthDeepSDF/files/bowl/12ddb18397a816c8948bef6886fb4ac_9_a25_k150_inp_train",
+    "dataset_YCB_train/DepthDeepSDF/files/bowl/292d2dda9923752f3e275dc4ab785b9f_4_a25_k150_inp_train",
+    "dataset_YCB_train/DepthDeepSDF/files/bowl/292d2dda9923752f3e275dc4ab785b9f_9_a25_k150_inp_train",
+    "dataset_YCB_train/DepthDeepSDF/files/laptop/1bb2e873cfbef364cef0dab711014aa8_4_a25_k150_inp_train",
+    "dataset_YCB_train/DepthDeepSDF/files/laptop/1bb2e873cfbef364cef0dab711014aa8_9_a25_k150_inp_train",
+    "dataset_YCB_train/DepthDeepSDF/files/laptop/1f507b26c31ae69be42930af58a36dce_4_a25_k150_inp_train",
+    "dataset_YCB_train/DepthDeepSDF/files/laptop/1f507b26c31ae69be42930af58a36dce_9_a25_k150_inp_train",
+    "dataset_YCB_train/DepthDeepSDF/files/laptop/2c61f0ba3236fe356dae27c417fa89b_4_a25_k150_inp_train",
+    "dataset_YCB_train/DepthDeepSDF/files/laptop/2c61f0ba3236fe356dae27c417fa89b_9_a25_k150_inp_train",
+    "dataset_YCB_train/DepthDeepSDF/files/laptop/16c49793f432cd4b33e4e0fe8cce118e_4_a25_k150_inp_train",
+    "dataset_YCB_train/DepthDeepSDF/files/laptop/16c49793f432cd4b33e4e0fe8cce118e_9_a25_k150_inp_train",
+    "dataset_YCB_train/DepthDeepSDF/files/mug/1a97f3c83016abca21d0de04f408950f_4_a25_k150_inp_train",
+    "dataset_YCB_train/DepthDeepSDF/files/mug/1a97f3c83016abca21d0de04f408950f_9_a25_k150_inp_train",
+    "dataset_YCB_train/DepthDeepSDF/files/mug/10f6e09036350e92b3f21f1137c3c347_4_a25_k150_inp_train",
+    "dataset_YCB_train/DepthDeepSDF/files/mug/10f6e09036350e92b3f21f1137c3c347_9_a25_k150_inp_train",
+    "dataset_YCB_train/DepthDeepSDF/files/mug/15bd6225c209a8e3654b0ce7754570c8_4_a25_k150_inp_train",
+    "dataset_YCB_train/DepthDeepSDF/files/mug/15bd6225c209a8e3654b0ce7754570c8_9_a25_k150_inp_train",
+    "dataset_YCB_train/DepthDeepSDF/files/mug/128ecbc10df5b05d96eaf1340564a4de_4_a25_k150_inp_train",
+    "dataset_YCB_train/DepthDeepSDF/files/mug/128ecbc10df5b05d96eaf1340564a4de_9_a25_k150_inp_train"
+]
+    names_txt = [name.replace("_k150_inp_train", ".txt") for name in train_new4_bottle]
+    names_gt = [name.replace("_a25_k150_inp_train", "_gt.txt") for name in train_new4_bottle]
 
-    ]
-    names_gt = [
-        'dataset_YCB_train/DepthDeepSDF/files/2c1df84ec01cea4e525b133235812833_5_gt.txt',
-        'dataset_YCB_train/DepthDeepSDF/files/4227b58665eadcefc0dc3ed657ab97f0_8_gt.txt',
-        'dataset_YCB_train/DepthDeepSDF/files/11547e8d8f143557525b133235812833_5_gt.txt',
-        'dataset_YCB_train/DepthDeepSDF/files/4b32d2c623b54dd4fe296ad57d60d898_0_gt.txt'
-    ]
     for name_txt, name_gt in zip(names_txt, names_gt):
         SOURCE_PATH = name_txt
         GT_PATH = name_gt

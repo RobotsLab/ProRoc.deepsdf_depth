@@ -34,7 +34,7 @@ def create_mesh(
     # print(samples, samples.size())
 
     samples = samples_from_file(filename)
-    print(samples, samples.size())
+    print("SAMPLES SIZE:", samples.size())
 
     num_samples = N ** 2
 
@@ -54,7 +54,7 @@ def create_mesh(
         head += max_batch
 
     sdf_values = samples[:, 2]
-    print("SDF VALUES:", sdf_values)
+    print("SAMPLES SIZE AFTER BATCHING:", samples.shape)
     
     # tutaj wywołać funkcję
 
@@ -168,7 +168,7 @@ def save_sdf_samples(
     print("OUTPUT")
     for i in range(samples_numpy.shape[0])[:20]:
         print(samples_numpy[i, :])
-    print("ZERO", samples_numpy[samples_numpy[:, 2] == 0].shape)
+    print("SAMPLES SHAPE ON OUTPUT:", samples_numpy.shape)
     data = {"pos": samples_numpy, "neg" : None}
     np.savez(filename + ".npz", **data)
     print(f"NPZ file saved in {filename}")
@@ -176,8 +176,9 @@ def save_sdf_samples(
 def samples_from_file(filename):
     base_path = "data_YCB/SdfSamples/dataset_YCB_test"
     dirs = filename.split('/')
-    input_path = os.path.join(base_path, dirs[-2], dirs[-1][:-1] + '_query.json')
+    input_path = os.path.join(base_path, dirs[-2], dirs[-1] + '_query.json')
     samples = data.read_sdf_samples_into_ram(input_path)
+    print(f"SAMPLES FROM FILE: {input_path} \nSHAPE: {samples.shape}")
     samples = samples.to(torch.float32)
     return samples
 

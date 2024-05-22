@@ -16,7 +16,7 @@ from depth_image_generator import load_generator_file, translate, scale, rotate
 
 
 K = 150
-REJECTION_ANGLE = 20
+REJECTION_ANGLE = 25
 
 class File():
     def __init__(self, source_path, destination_dir):
@@ -118,7 +118,7 @@ def rejection_sampling(sdf):
     else:
         return -1
 
-def linspace_sampling(rd, fornt_bbox_z, back_bbox_z, num_samples, unique, visualize_dict, input_file, u, v, scene):
+def linspace_sampling(rd, fornt_bbox_z, back_bbox_z, num_samples, unique, visualize_dict, input_file, u, v, scene, halo=False):
     sampled_points = np.linspace(fornt_bbox_z, back_bbox_z, num_samples)
     # object_points = np.asarray(pcd.points)
     # tree = KDTree(object_points, leafsize=object_points.shape[0]+1)
@@ -130,9 +130,23 @@ def linspace_sampling(rd, fornt_bbox_z, back_bbox_z, num_samples, unique, visual
             if sample > point_z:
                 passed_surfaces += 1
 
-        if passed_surfaces % 2 == 1:
+        if passed_surfaces % 2 == 1 and not halo:
             sdf = 0
-            
+        elif halo:
+            z = sample
+            x = (input_file.cx - u) * z / input_file.f  # y on image is x in real world
+            y = (input_file.cy - v) * z / input_file.f  # x on image is y in real world
+            # distances, ndx = tree.query(np.array([x, y, z]), k=1)  # distances is the same as sdf
+
+            query_point = o3d.core.Tensor([[x, y, z]], dtype=o3d.core.Dtype.Float32)
+
+            # Compute distance of the query point from the surface
+            sdf = scene.compute_distance(query_point).item()
+
+            # rejection sampling
+            sdf = rejection_sampling(sdf)
+            if sdf < 0:
+                continue
         elif len(unique) > passed_surfaces:
             z = sample
             x = (input_file.cx - u) * z / input_file.f  # y on image is x in real world
@@ -148,7 +162,6 @@ def linspace_sampling(rd, fornt_bbox_z, back_bbox_z, num_samples, unique, visual
             sdf = rejection_sampling(sdf)
             if sdf < 0:
                 continue
-
         else:
             z = sample
             x = (input_file.cx - u) * z / input_file.f  # y on image is x in real world
@@ -168,22 +181,12 @@ def linspace_sampling(rd, fornt_bbox_z, back_bbox_z, num_samples, unique, visual
         visualize_dict[key].append([rd, dd, sdf])
 
 if __name__ == '__main__':
-    category = 'mug'
-    names_txt = [name for name in os.listdir(f'dataset_YCB_train/DepthDeepSDF/files/{category}') if '_' in name and name.endswith(".txt")]
-    DESTINATION_PATH = f'dataset_YCB_train/DepthDeepSDF/files/{category}'
-    print(names_txt)
-    exit(777)
-    file_names = os.listdir(DESTINATION_PATH)
-    # print(file_names)
-    # exit(777)
-    for name_txt in file_names:
-        if False: #  not name_txt.endswith(f'_a{REJECTION_ANGLE}.txt') or name_txt or
-            print('xd')
-        else:
-    # for a in range(1, 7):
-        # for b in range(20):
-            # try:
-            name_txt = '4b32d2c623b54dd4fe296ad57d60d898_0_a20.txt'
+    categories = ['laptop']  # 'bottle', 'bowl', 
+    for category in categories:
+        names_txt = [name for name in os.listdir(f'dataset_YCB_train/DepthDeepSDF/files/{category}') if '_a' in name and name.endswith(".txt")]
+        DESTINATION_PATH = f'dataset_YCB_train/DepthDeepSDF/files/{category}'
+        print(names_txt)
+        for name_txt in names_txt:
             SOURCE_PATH = os.path.join(DESTINATION_PATH, name_txt)
             GT_PATH = SOURCE_PATH.replace(f'_a{REJECTION_ANGLE}', '_gt')
             print(SOURCE_PATH, GT_PATH)
@@ -240,6 +243,10 @@ if __name__ == '__main__':
                     # obliczamy sdf
                     # punktom, które znajdują się za nieparzystą liczbą ścian przypisujemy wartość 0
                     # pozostałym punktom szukamy najbliższej powierzchni
+                elif len(unique) == 1:
+                    first_surface = unique[0]
+                    rd = first_surface - fornt_bbox_z
+                    linspace_sampling(rd, fornt_bbox_z, back_bbox_z, num_samples, unique, visualize_dict, input_file, x, y, scene, True)
                 else:
                     output_file.pixels.append(np.array([np.nan]))
                     visualize_dict[key].append([np.nan])
@@ -256,7 +263,3 @@ if __name__ == '__main__':
             print("PROBLEMS", problems)
             print("Samples", samples)
             print("--------------------------------------")
-            # except:
-                # print(f'FAILED TO LOAD: dataset_YCB_train/DepthDeepSDF/files/untitled_1_{b}_a{REJECTION_ANGLE}.txt')
-                # exit(777)
-

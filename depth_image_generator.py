@@ -9,8 +9,8 @@ from depth.utils import *
 from depth.camera import Camera
 from depth_file_generator import File as ViewsFile
 
-POWER_FACTOR = 20
-GT = True
+POWER_FACTOR = 25
+GT = False
 
 class File():
     def __init__(self, source_path, destination_dir=''):
@@ -321,9 +321,9 @@ def stack_images(file, input_mesh, camera, view=0):
     
     depth_image = np.zeros((file.Ndy, file.Ndx, np.max(counts)))
 
-    # mask = diff_img != 0
-    # depth_image[mask, 0] = 255
-    depth_image[:, :, 0] = diff_img[:,:]
+    mask = diff_img > 1
+    depth_image[mask, 0] = diff_img[mask]
+    # depth_image[:, :, 0] = diff_img[:,:]
     num_new_pixels = np.count_nonzero(depth_image[:, :, 0])
     print("New points from halo:", num_new_pixels)
     # plt.imshow(depth_image[:, :, 0], cmap='gray')
@@ -436,7 +436,7 @@ def stack_images(file, input_mesh, camera, view=0):
     return depth_image[file.ny:file.ny+file.ndy, file.nx:file.nx+file.ndx, :]
 
 if __name__ == '__main__':
-    categories = ['mug', 'laptop']
+    categories = ['bottle', 'bowl', 'mug', 'laptop']
     for category in categories:
         names_txt = [name for name in os.listdir(f'dataset_YCB_train/DepthDeepSDF/files/{category}') if not '_' in name]
         saved_files = 0
@@ -459,7 +459,7 @@ if __name__ == '__main__':
             print("===================================================")
             print("SOURCE PATH", SOURCE_PATH)
             for view, frame in enumerate(input_file.frames):
-                if name_txt.split('.')[0] + f'_{view}_a{POWER_FACTOR}.txt' in os.listdir(f'dataset_YCB_train/DepthDeepSDF/files/{category}'):
+                if not name_txt.split('.')[0] + f'_{view}_a{POWER_FACTOR}.txt' in os.listdir(f'dataset_YCB_train/DepthDeepSDF/files/{category}'):
                     continue
                 # if not name_txt.split('.')[0] + f'_{view}_gt.txt' in os.listdir(f'dataset_YCB_train/DepthDeepSDF/files/{category}'):
                 #     continue
@@ -529,9 +529,16 @@ if __name__ == '__main__':
             # telefon, aprat, miska, kubek, butelka, laptop - przedmioty biurkowe
             # zmierzyć metryki
 
-            # bowls
-            # 1b4d7803a3298f8477bdcb8816a3fac9_0_gt
-            # 12ddb18397a816c8948bef6886fb4ac_0_gt
-            # 292d2dda9923752f3e275dc4ab785b9f_0_gt
-            # 11547e8d8f143557525b133235812833_0_gt
-            # 260545503087dc5186810055962d0a91_0_gt
+            # zrobić dot product w rejection sampling do powierzchni - bardziej nieliniowa funkcja odrzucenia
+            # wygenerować mesh - kernel density? w 3D z Nearest Neighbour Search
+            # idąc po promieniu dla każdego piksela akumuluję wartość dla punktów znajdujących się w promieniu r
+            # ważyć je exp^{wartość/odległość} i zrobić wartość krytyczną (próg) dla której będzie powierzchnia
+
+            # zwiększyć aureolę do 10 pikseli
+            # 1. Wrzucić wynik do Marching Cubes. Jeżeli SDF jest poniżej jakiejś wartości progowej to dany voxel jest zajęty.
+            # przesunąć do 0,0,0 
+            # przeskalować
+            # do MC
+            
+            # sprawdzić czy dane generowane są równolegle
+            # alternatywa idziemy po promieniu i szukamy zmiany znaku wartości sdf - tam powstaje punkt należący do trójkąta

@@ -6,6 +6,7 @@ examples/
 objectobjectsimilaritymetrics/
 Test_PPRAI.v2/
 ycb1/
+ShapeNetCore/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
@@ -174,3 +175,4 @@ note.txt
 DepthCamera_2024-03-01-13-45-11.json
 DepthCapture_2024-03-01-13-45-11.png
 front_back_results.txt
+ShapeNetCore/02691156.zip
