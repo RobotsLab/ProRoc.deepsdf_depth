@@ -149,7 +149,7 @@ def linspace_sampling(rd, fornt_bbox_z, back_bbox_z, num_samples, unique, visual
             # Compute distance of the query point from the surface
             sdf = scene.compute_distance(query_point).item()
 
-            visualize_dict[key].append([rd, 0.001, -0.001])
+            visualize_dict[key].append([rd, 0.001, 0])
             visualize_dict[key].append([rd, dd, sdf])
         
     return insiders, outsiders
