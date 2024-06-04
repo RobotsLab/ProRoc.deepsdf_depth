@@ -10,7 +10,7 @@ from depth.camera import Camera
 from depth_file_generator import File as ViewsFile
 
 POWER_FACTOR = 25
-GT = False
+GT = True
 
 class File():
     def __init__(self, source_path, destination_dir=''):
@@ -436,7 +436,7 @@ def stack_images(file, input_mesh, camera, view=0):
     return depth_image[file.ny:file.ny+file.ndy, file.nx:file.nx+file.ndx, :]
 
 if __name__ == '__main__':
-    categories = ['bottle', 'bowl', 'mug', 'laptop']
+    categories = ['can', 'jar']
     for category in categories:
         names_txt = [name for name in os.listdir(f'dataset_YCB_train/DepthDeepSDF/files/{category}') if not '_' in name]
         saved_files = 0
@@ -459,10 +459,15 @@ if __name__ == '__main__':
             print("===================================================")
             print("SOURCE PATH", SOURCE_PATH)
             for view, frame in enumerate(input_file.frames):
+                if view <= 7:
+                    continue
+                print(name_txt.split('.')[0] + f'_{view}_a{POWER_FACTOR}.txt')
+                # if name_txt.split('.')[0] + f'_{view}_a{POWER_FACTOR}.txt' in os.listdir(f'dataset_YCB_train/DepthDeepSDF/files/{category}'):
+                #     continue
+                # if name_txt.split('.')[0] + f'_{view}_gt.txt' in os.listdir(f'dataset_YCB_train/DepthDeepSDF/files/{category}'):
+                #     continue
                 if not name_txt.split('.')[0] + f'_{view}_a{POWER_FACTOR}.txt' in os.listdir(f'dataset_YCB_train/DepthDeepSDF/files/{category}'):
                     continue
-                # if not name_txt.split('.')[0] + f'_{view}_gt.txt' in os.listdir(f'dataset_YCB_train/DepthDeepSDF/files/{category}'):
-                #     continue
                 print("VIEW:", view)
                 scaled_mesh = translate(scaled_mesh, frame[:3])
                 scaled_mesh = rotate(scaled_mesh, frame[3:])
@@ -498,8 +503,8 @@ if __name__ == '__main__':
                 # plt.imshow(depth_image[:,:,0], cmap='gray')
                 # plt.title('Output camera image')
                 # plt.show()
-                plt.imshow(img, cmap='gray')
-                plt.title('Input camera image')
+                # plt.imshow(img, cmap='gray')
+                # plt.title('Input camera image')
                 # plt.show()
                 if GT:
                     plt.savefig(os.path.join(output_file.destination_dir, output_file.name + '_' + str(view) + f'_gt.png'))

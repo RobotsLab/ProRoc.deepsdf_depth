@@ -138,7 +138,7 @@ def create_directory(directory):
         print(f"Directory '{directory}' already exists.")
 
 if __name__ == '__main__':
-    category = 'telephone'
+    category = 'can'
     rotate_object = True
     names = os.listdir(f'ShapeNetCore/{category}')
 
@@ -153,13 +153,15 @@ if __name__ == '__main__':
     #     'dataset_YCB_train/DepthDeepSDF/1c9f9e25c654cbca3c71bf3f4dd78475/models/untitled.ply'
     # ]
     for name in names:
+        if name == '12ec19e85b31e274725f67267e31c89':
+            continue
         SOURCE_PATH = os.path.join(f'ShapeNetCore/{category}', name, 'models/model_normalized.obj')
         DESTINATION_PATH = f'dataset_YCB_train/DepthDeepSDF/files/{category}'
         create_directory(DESTINATION_PATH)
         generated_file = File(SOURCE_PATH, DESTINATION_PATH)
 
         input_mesh = load_file(SOURCE_PATH)
-        input_mesh = rotate(input_mesh, np.array([180, 0, 0]))
+        input_mesh = rotate(input_mesh, np.array([90, 0, 0]))
 
         s_o_vector = np.concatenate([s_o_translation(input_mesh), s_o_rotation(input_mesh)], axis=0)
         generated_file.s_o_transformation = s_o_vector

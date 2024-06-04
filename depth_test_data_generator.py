@@ -17,7 +17,7 @@ from depth_image_generator import load_generator_file, translate, scale, rotate
 
 K = 150
 REJECTION_ANGLE = 25
-QUERY = True
+QUERY = False
 
 class File():
     def __init__(self, source_path, destination_dir):
@@ -126,9 +126,10 @@ def rejection_sampling(sdf):
 
 def linspace_sampling(rd, fornt_bbox_z, back_bbox_z, num_samples, unique, visualize_dict, input_file, u, v, scene):
     sampled_points = np.linspace(fornt_bbox_z, back_bbox_z, num_samples)
-    # object_points = np.asarray(pcd.points)
-    # tree = KDTree(object_points, leafsize=object_points.shape[0]+1)
-    
+    step = (back_bbox_z - fornt_bbox_z) / num_samples
+
+    insiders = 0
+    outsiders = 0
     for sample in sampled_points:
         dd = sample - rd - fornt_bbox_z
         passed_surfaces = 0
@@ -136,48 +137,22 @@ def linspace_sampling(rd, fornt_bbox_z, back_bbox_z, num_samples, unique, visual
             if sample > point_z:
                 passed_surfaces += 1
 
-        if not QUERY:
-            if passed_surfaces >= 2:
-                continue
+        if passed_surfaces == 0 and abs(dd) <= step:
+            outsiders += 1
 
-            if passed_surfaces % 2 == 1:
-                sdf = 0
-                
-            elif len(unique) > passed_surfaces:
-                z = sample
-                x = (input_file.cx - u) * z / input_file.f  # y on image is x in real world
-                y = (input_file.cy - v) * z / input_file.f  # x on image is y in real world
-                # distances, ndx = tree.query(np.array([x, y, z]), k=1)  # distances is the same as sdf
+            z = sample
+            x = (input_file.cx - u) * z / input_file.f  # y on image is x in real world
+            y = (input_file.cy - v) * z / input_file.f  # x on image is y in real world
 
-                query_point = o3d.core.Tensor([[x, y, z]], dtype=o3d.core.Dtype.Float32)
+            query_point = o3d.core.Tensor([[x, y, z]], dtype=o3d.core.Dtype.Float32)
 
-                # Compute distance of the query point from the surface
-                sdf = scene.compute_distance(query_point).item()
+            # Compute distance of the query point from the surface
+            sdf = scene.compute_distance(query_point).item()
 
-                # rejection sampling
-                sdf = rejection_sampling(sdf)
-                if sdf < 0:
-                    continue
-
-            else:
-                z = sample
-                x = (input_file.cx - u) * z / input_file.f  # y on image is x in real world
-                y = (input_file.cy - v) * z / input_file.f  # x on image is y in real world
-                # distances, ndx = tree.query(np.array([x, y, z]), k=1)  # distances is the same as sdf
-
-                query_point = o3d.core.Tensor([[x, y, z]], dtype=o3d.core.Dtype.Float32)
-
-                # Compute distance of the query point from the surface
-                sdf = scene.compute_distance(query_point).item()
-
-                # rejection sampling
-                sdf = rejection_sampling(sdf)
-                if sdf < 0:
-                    continue
-        else:
-            sdf = 0
-
-        visualize_dict[key].append([rd, dd, sdf])
+            visualize_dict[key].append([rd, 0.001, -0.001])
+            visualize_dict[key].append([rd, dd, sdf])
+        
+    return insiders, outsiders
 
 if __name__ == '__main__':
     train_new4_bottle = [
@@ -212,16 +187,35 @@ if __name__ == '__main__':
     "dataset_YCB_train/DepthDeepSDF/files/mug/15bd6225c209a8e3654b0ce7754570c8_4_a25_k150_inp_train",
     "dataset_YCB_train/DepthDeepSDF/files/mug/15bd6225c209a8e3654b0ce7754570c8_9_a25_k150_inp_train",
     "dataset_YCB_train/DepthDeepSDF/files/mug/128ecbc10df5b05d96eaf1340564a4de_4_a25_k150_inp_train",
-    "dataset_YCB_train/DepthDeepSDF/files/mug/128ecbc10df5b05d96eaf1340564a4de_9_a25_k150_inp_train"
+    "dataset_YCB_train/DepthDeepSDF/files/mug/128ecbc10df5b05d96eaf1340564a4de_9_a25_k150_inp_train",
+    "dataset_YCB_train/DepthDeepSDF/files/can/2eeefdfc9b70b89eeb153e9a37e99fa5_4_a25_k150_inp_train",
+    "dataset_YCB_train/DepthDeepSDF/files/can/2eeefdfc9b70b89eeb153e9a37e99fa5_9_a25_k150_inp_train",
+    "dataset_YCB_train/DepthDeepSDF/files/can/3a9041d7aa0b4b9ad9802f6365035049_4_a25_k150_inp_train",
+    "dataset_YCB_train/DepthDeepSDF/files/can/3a9041d7aa0b4b9ad9802f6365035049_9_a25_k150_inp_train",
+    "dataset_YCB_train/DepthDeepSDF/files/can/3c8af6b0aeaf13c2abf4b6b757f4f768_4_a25_k150_inp_train",
+    "dataset_YCB_train/DepthDeepSDF/files/can/3c8af6b0aeaf13c2abf4b6b757f4f768_9_a25_k150_inp_train",
+    "dataset_YCB_train/DepthDeepSDF/files/can/3fd196c22459cc66c8687ff9b0b4e4ac_4_a25_k150_inp_train",
+    "dataset_YCB_train/DepthDeepSDF/files/can/3fd196c22459cc66c8687ff9b0b4e4ac_9_a25_k150_inp_train",
+    "dataset_YCB_train/DepthDeepSDF/files/jar/1d7868b4ad0913bf9f6b966b784c8347_4_a25_k150_inp_train",
+    "dataset_YCB_train/DepthDeepSDF/files/jar/1d7868b4ad0913bf9f6b966b784c8347_9_a25_k150_inp_train",
+    "dataset_YCB_train/DepthDeepSDF/files/jar/1dde51480f0c5474a38859fd71bee28c_4_a25_k150_inp_train",
+    "dataset_YCB_train/DepthDeepSDF/files/jar/1dde51480f0c5474a38859fd71bee28c_9_a25_k150_inp_train",
+    "dataset_YCB_train/DepthDeepSDF/files/jar/146f6702601f9c5d8bb41b82b15c6ac_4_a25_k150_inp_train",
+    "dataset_YCB_train/DepthDeepSDF/files/jar/146f6702601f9c5d8bb41b82b15c6ac_9_a25_k150_inp_train",
+    "dataset_YCB_train/DepthDeepSDF/files/jar/151a80ff1ad2fe11c8c4893204f16cf_4_a25_k150_inp_train",
+    "dataset_YCB_train/DepthDeepSDF/files/jar/151a80ff1ad2fe11c8c4893204f16cf_9_a25_k150_inp_train",
 ]
+    
     names_txt = [name.replace("_k150_inp_train", ".txt") for name in train_new4_bottle]
     names_gt = [name.replace("_a25_k150_inp_train", "_gt.txt") for name in train_new4_bottle]
 
+    totals = []
+    insiders = []
+    outsiders = []
     for name_txt, name_gt in zip(names_txt, names_gt):
         SOURCE_PATH = name_txt
         GT_PATH = name_gt
-        DESTINATION_PATH = 'dataset_YCB_train/DepthDeepSDF/files'
-
+        DESTINATION_PATH = 'data_YCB/SdfSamples/dataset_YCB_test/sdf_test_new5_' + name_txt.split('/')[3]
         input_file = DepthFile(SOURCE_PATH)
         load_depth_file(input_file)
         print("INPUT FILE LOADED")
@@ -256,7 +250,9 @@ if __name__ == '__main__':
         fornt_bbox_z = input_file.dz  # + 0.05
         back_bbox_z = input_file.dz2  # - 0.1
         print(len(input_file.pixels))
-
+        count_insiders = 0
+        count_outsiders = 0
+        count_totals = 0
         for i, pixel in enumerate(input_file.pixels):
             unique = np.unique(pixel[pixel!=0])
             x = (i % input_file.ndx) + input_file.nx
@@ -271,17 +267,20 @@ if __name__ == '__main__':
                 rd = first_surface - fornt_bbox_z
 
                 # samplujemy punkty po promieniu
-                linspace_sampling(rd, fornt_bbox_z, back_bbox_z, num_samples, unique, visualize_dict, input_file, x, y, scene)
+                insider, outsider = linspace_sampling(rd, fornt_bbox_z, back_bbox_z, num_samples, unique, visualize_dict, input_file, x, y, scene)
                 # obliczamy sdf
                 # punktom, które znajdują się za nieparzystą liczbą ścian przypisujemy wartość 0
                 # pozostałym punktom szukamy najbliższej powierzchni
+                count_totals += 1
+                count_insiders += insider
+                count_outsiders += outsider
             else:
                 output_file.pixels.append(np.array([np.nan]))
                 visualize_dict[key].append([np.nan])
-                nans += 1
-
+        outsiders.append(count_outsiders)
+        insiders.append(count_insiders)
+        totals.append(count_totals)
         output_file.save(visualize_dict)
-
         print("Total:", len(visualize_dict))
         print("Max saved sdf:", max_saved_sdf)
 
@@ -291,7 +290,6 @@ if __name__ == '__main__':
         print("PROBLEMS", problems)
         print("Samples", samples)
         print("--------------------------------------")
-
-            # print(f'FAILED TO LOAD: {name_txt}')
-            # exit(777)
-
+    
+    for i in range(len(totals)):
+        print(totals[i], insiders[i], outsiders[i])

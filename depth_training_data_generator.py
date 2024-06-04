@@ -181,24 +181,35 @@ def linspace_sampling(rd, fornt_bbox_z, back_bbox_z, num_samples, unique, visual
         visualize_dict[key].append([rd, dd, sdf])
 
 if __name__ == '__main__':
-    categories = ['laptop']  # 'bottle', 'bowl', 
+    categories = ['can', 'jar']  # 'mug', 'bottle', 'bowl', 'laptop']  # 'bottle', 'bowl', 
     for category in categories:
         names_txt = [name for name in os.listdir(f'dataset_YCB_train/DepthDeepSDF/files/{category}') if '_a' in name and name.endswith(".txt")]
         DESTINATION_PATH = f'dataset_YCB_train/DepthDeepSDF/files/{category}'
-        print(names_txt)
+        saved_files = 0
         for name_txt in names_txt:
+            view = int(name_txt.split('_')[1])
+            if view <= 7:
+                continue
+            if name_txt.split('.')[0] + f'_a{REJECTION_ANGLE}_inp_train.txt' in os.listdir(f'dataset_YCB_train/DepthDeepSDF/files/{category}'):
+                continue
             SOURCE_PATH = os.path.join(DESTINATION_PATH, name_txt)
             GT_PATH = SOURCE_PATH.replace(f'_a{REJECTION_ANGLE}', '_gt')
             print(SOURCE_PATH, GT_PATH)
 
             input_file = DepthFile(SOURCE_PATH)
-            load_depth_file(input_file)
-
+            try:
+                load_depth_file(input_file)
+            except FileNotFoundError:
+                print(f"file not found {input_file}")
+                continue
             output_file = File(SOURCE_PATH, DESTINATION_PATH)
 
             gt_file = DepthFile(GT_PATH)
-            load_depth_file(gt_file)
-
+            try:
+                load_depth_file(gt_file)
+            except FileNotFoundError:
+                print(f"file not found {gt_file}")
+                continue
             pcd = generate_pcd(gt_file)
             points = np.asarray(pcd.points)
             print('pcd', np.mean(points, axis=0))
@@ -263,3 +274,7 @@ if __name__ == '__main__':
             print("PROBLEMS", problems)
             print("Samples", samples)
             print("--------------------------------------")
+            if '_9_' in name_txt:
+                saved_files += 1
+            if saved_files == 10:
+                break
