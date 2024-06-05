@@ -213,14 +213,14 @@ if __name__ == '__main__':
     vis = o3d.visualization.Visualizer()
     k = 150
     rejection_angle = 25
-    categories = ['mug', 'bottle','bowl', 'laptop']
+    categories = ['mug', 'bottle','bowl', 'laptop', 'can', 'jar']
     for category in categories:
-        results_path = f'examples/new4/Reconstructions/1000/Meshes/dataset_YCB_test/test_new4_{category}'
+        results_path = f'examples/new5/Reconstructions/600/Meshes/dataset_YCB_test/test_new5_{category}'
         names_txt = [name for name in os.listdir(results_path) if name.endswith('.npz')]
         for name in names_txt:
             print(name)
             SOURCE_PATH = f"dataset_YCB_train/DepthDeepSDF/files/{category}/{name.replace('_k150_inp_test.npz', '.txt')}"
-            TEST_QUERY_PATH = f"data_YCB/SdfSamples/dataset_YCB_test/test_new4_{category}/{name.replace('.npz', '_query.json')}" #_k150_inp_train.json'
+            TEST_QUERY_PATH = f"data_YCB/SdfSamples/dataset_YCB_test/test_new5_{category}/{name.replace('.npz', '_query.json')}" #_k150_inp_train.json'
             RESULTS_PATH = os.path.join(results_path, name)
             print(RESULTS_PATH.split('/')[-1])
             npz = load_querry_points(RESULTS_PATH)
@@ -240,11 +240,14 @@ if __name__ == '__main__':
             depth_image = []
             itr = 0
             halo = 0
+            dupplicated_sdf = 0
             for key, value in input_file.items():
                 pixel = []
                 if len(value) == 1 and not np.any(np.isnan(value[0])):
                     halo += 1
 
+                duplicate_counter = 0
+                previous_sdf = 100
                 for i, row in enumerate(value):
                     x, y = map(int, key.split(', '))
                     if np.any(np.isnan(row)):
@@ -252,8 +255,13 @@ if __name__ == '__main__':
                     elif np.float32(row[0]) == npz[itr][0] and np.float32(row[1]) == npz[itr][1]:
                         z = npz[itr][0] + npz[itr][1] + data_file.dz
                         sdf = npz[itr][2]
-                        object_image.append(np.array([x, y, z, sdf]))
                         itr += 1
+                        if sdf == previous_sdf:
+                            dupplicated_sdf += 1
+                            previous_sdf = sdf
+                            continue
+                        object_image.append(np.array([x, y, z, sdf]))
+                        previous_sdf = sdf
                     else:
                         miss_match += 1
 
@@ -264,8 +272,8 @@ if __name__ == '__main__':
             
             # critical_points = critical_points_point_cloud(object_points, h_begin=0.00002, h_end=-0.00003, min_thickness=0.00004)
 
-            object_points.image = object_points.image[object_points.image[:, 3] >= -0.00003]
-            object_points.image = object_points.image[object_points.image[:, 3] <= 0.00002]
+            # object_points.image = object_points.image[object_points.image[:, 3] >= -0.00003]
+            # object_points.image = object_points.image[object_points.image[:, 3] <= 0.00002]
 
             object_pcd = object_points.to_point_cloud()
 
@@ -278,30 +286,31 @@ if __name__ == '__main__':
             pcd = o3d.geometry.PointCloud()  # create point cloud object
             pcd.points = o3d.utility.Vector3dVector(verts)
 
-            mesh = o3d.geometry.TriangleMesh()
-            mesh.vertices = object_pcd.points #  o3d.utility.Vector3dVector(object_points)
+            # mesh = o3d.geometry.TriangleMesh()
+            # mesh.vertices = object_pcd.points 
+            #  o3d.utility.Vector3dVector(object_points)
             # mesh.triangles = o3d.utility.Vector3iVector(faces)
 
-            alpha = 10
-            alpha_shape = alphashape.alphashape(verts, alpha)
-            print(type(alpha_shape), alpha_shape, alpha)
+            # alpha = 10
+            # alpha_shape = alphashape.alphashape(verts, alpha)
+            # print(type(alpha_shape), alpha_shape, alpha)
 
-            alpha_verts = np.asarray(alpha_shape.vertices)
-            alpha_faces = np.asarray(alpha_shape.faces)
+            # alpha_verts = np.asarray(alpha_shape.vertices)
+            # alpha_faces = np.asarray(alpha_shape.faces)
             mesh = o3d.geometry.TriangleMesh()
-            mesh.vertices = o3d.utility.Vector3dVector(alpha_verts)
-            mesh.triangles = o3d.utility.Vector3iVector(alpha_faces)
+            mesh.vertices = o3d.utility.Vector3dVector(verts)
+            mesh.triangles = o3d.utility.Vector3iVector(faces)
 
-            o3d.visualization.draw_geometries([object_pcd, mesh], mesh_show_back_face=True)
+            # o3d.visualization.draw_geometries([pcd], mesh_show_back_face=True)
             print(1, verts.shape[0], faces.shape)
             print(2, np.asarray(mesh.vertices).shape[0], np.asarray(mesh.triangles).shape[0])
 
-            # o3d.io.write_triangle_mesh(TEST_QUERY_PATH.replace('_query.json', '_mesh.ply'), mesh)
-            # o3d.io.write_point_cloud(TEST_QUERY_PATH.replace('_query.json', '_points.pcd'), pcd)
+            o3d.io.write_triangle_mesh(TEST_QUERY_PATH.replace('_query.json', '_mesh.ply'), mesh)
+            o3d.io.write_point_cloud(TEST_QUERY_PATH.replace('_query.json', '_points.pcd'), pcd)
             # mesh2 = o3d.io.read_triangle_mesh(TEST_QUERY_PATH.replace('_query.json', '_mesh.ply'))
             # print(3, np.asarray(mesh2.vertices).shape[0], np.asarray(mesh2.triangles).shape[0])
 
-            exit(888)
+            continue
             # <class 'shapely.geometry.polygon.Polygon'> POLYGON Z ((0.1032942517043708 0 0.1386363677680492, 0.0888330564657589 0.0049663662297643 0.1431818224489689, 0.0785036312953218 0.0099327324595286 0.1477272771298885, 0.0702400911589722 0.0148990986892929 0.154545459151268, 0.0599106659885351 0.0248318311488216 0.1636363685131073, 0 0.1167096063994613 0.1295454584062099, 0 0.1738228180417508 0.0931818209588528, 0.0061976551022622 0.1812723673863973 0.0886363662779331, 0.0661083210907973 0.2259696634542761 0.1045454576611519, 0.0867671714316715 0.2383855790286869 0.1227272763848305, 0.1094919068066331 0.2458351283733334 0.1386363677680492, 0.1404801823179443 0.2458351283733334 0.1386363677680492, 0.1694025727951682 0.2359023959138047 0.1090909123420715, 0.1817978829996927 0.2284528465691583 0.1136363670229912, 0.1941931932042172 0.2135537478798653 0.0840909115970135, 0.1962590782383046 0.2110705647649832 0.0886363662779331, 0.2024567333405668 0.1961714660756902 0.0886363662779331, 0.2045226183746542 0.1390582544334007 0.1386363677680492, 0.2003908483064794 0.0471804791827609 0.1795454598963261, 0.1962590782383046 0.0347645636083502 0.1681818231940269, 0.1859296530678675 0.0198654649190572 0.1590909138321876, 0.173534342863343 0.0099327324595286 0.1477272771298885, 0.1611390326588185 0.0049663662297643 0.1431818224489689, 0.1466778374202066 0 0.1386363677680492, 0.1032942517043708 0 0.1386363677680492)) 0.0
 
             # print("Critical points shape:", critical_points.shape)
@@ -435,3 +444,4 @@ if __name__ == '__main__':
 
             # zwiększyć rozdzielczość i zmniejszyć liczbę sampli
             # grid search parametrów do marching cubes
+            # liczba 
