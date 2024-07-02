@@ -6,7 +6,7 @@ import random
 
 from depth.utils import *
 from depth.camera import Camera
-from depth_image_generator import File as DepthFile
+from depth_image_generator import DepthImageFile as DepthFile
 
 class File():
     def __init__(self, source_path, destination_dir):

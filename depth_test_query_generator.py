@@ -9,9 +9,9 @@ from scipy.spatial import KDTree
 
 from depth.utils import *
 from depth.camera import Camera
-from depth_image_generator import File as DepthFile
+from depth_image_generator import DepthImageFile as DepthFile
 
-from depth_file_generator import File as ViewsFile
+from depth_file_generator import ViewFile as ViewsFile
 from depth_image_generator import load_generator_file, translate, scale, rotate
 
 
@@ -139,10 +139,10 @@ def linspace_sampling(rd, fornt_bbox_z, back_bbox_z, num_samples, unique, visual
         else:
             outsiders += 1
 
-            # z = sample
-            # x = (input_file.cx - u) * z / input_file.f  # y on image is x in real world
-            # y = (input_file.cy - v) * z / input_file.f  # x on image is y in real world
-            # pcd_points.append(np.array([x, y, z]))
+            z = sample
+            x = (input_file.cx - u) * z / input_file.f  # y on image is x in real world
+            y = (input_file.cy - v) * z / input_file.f  # x on image is y in real world
+            pcd_points.append(np.array([x, y, z]))
 
             visualize_dict[key].append([rd, dd, 0])
 
@@ -220,7 +220,7 @@ if __name__ == '__main__':
     for name_txt, name_gt in zip(names_txt, names_gt):
         SOURCE_PATH = name_txt
         GT_PATH = name_gt
-        DESTINATION_PATH = 'data_YCB/SdfSamples/dataset_YCB_test/test_new5_' + name_txt.split('/')[3]
+        DESTINATION_PATH = 'data_YCB/SdfSamples/dataset_YCB_test/test_new6_' + name_txt.split('/')[3]
         input_file = DepthFile(SOURCE_PATH)
         load_depth_file(input_file)
         print("INPUT FILE LOADED")
@@ -284,14 +284,14 @@ if __name__ == '__main__':
         # pcd = o3d.geometry.PointCloud()  # create point cloud object
         # pcd.points = o3d.utility.Vector3dVector(pcd_points_array)  # set pcd_np as the point cloud points
         # origin = o3d.geometry.TriangleMesh.create_coordinate_frame(size=0.1)
-        # o3d.visualization.draw_geometries([pcd, origin])
+        # o3d.visualization.draw_geometries([pcd, ply, origin])
 
 
         outsiders.append(count_outsiders)
         insiders.append(count_insiders)
         totals.append(count_totals)
 
-        # output_file.save(visualize_dict)
+        output_file.save(visualize_dict)
         print("Total:", len(visualize_dict))
         print("Max saved sdf:", max_saved_sdf)
 

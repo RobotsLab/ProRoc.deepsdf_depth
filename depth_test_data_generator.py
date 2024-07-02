@@ -9,9 +9,10 @@ from scipy.spatial import KDTree
 
 from depth.utils import *
 from depth.camera import Camera
-from depth_image_generator import File as DepthFile
+from depth_image_generator import DepthImageFile as DepthFile
+from depth_file_generator import scale as basic_scale
 
-from depth_file_generator import File as ViewsFile
+from depth_file_generator import ViewFile as ViewsFile
 from depth_image_generator import load_generator_file, translate, scale, rotate
 
 
@@ -137,7 +138,7 @@ def linspace_sampling(rd, fornt_bbox_z, back_bbox_z, num_samples, unique, visual
             if sample > point_z:
                 passed_surfaces += 1
 
-        if passed_surfaces == 0 and abs(dd) <= step:
+        if passed_surfaces == 0:
             outsiders += 1
 
             z = sample
@@ -149,41 +150,57 @@ def linspace_sampling(rd, fornt_bbox_z, back_bbox_z, num_samples, unique, visual
             # Compute distance of the query point from the surface
             sdf = scene.compute_distance(query_point).item()
 
-            visualize_dict[key].append([rd, 0.001, 0])
             visualize_dict[key].append([rd, dd, sdf])
-        
+
+    dd = random.uniform(0., 0.001)
+    visualize_dict[key].append([rd, dd, 0])
+    
+
+    z = fornt_bbox_z + rd - dd
+    x = (input_file.cx - u) * z / input_file.f  # y on image is x in real world
+    y = (input_file.cy - v) * z / input_file.f  # x on image is y in real world
+
+    query_point = o3d.core.Tensor([[x, y, z]], dtype=o3d.core.Dtype.Float32)
+
+    # Compute distance of the query point from the surface
+    sdf = scene.compute_distance(query_point).item()
+
+
+    visualize_dict[key].append([rd, -dd, sdf])
+    values = visualize_dict[key]
+
     return insiders, outsiders
 
 if __name__ == '__main__':
     train_new4_bottle = [
-    "dataset_YCB_train/DepthDeepSDF/files/bottle/10f709cecfbb8d59c2536abb1e8e5eab_4_a25_k150_inp_train",
-    "dataset_YCB_train/DepthDeepSDF/files/bottle/10f709cecfbb8d59c2536abb1e8e5eab_9_a25_k150_inp_train",
-    "dataset_YCB_train/DepthDeepSDF/files/bottle/13d991326c6e8b14fce33f1a52ee07f2_4_a25_k150_inp_train",
-    "dataset_YCB_train/DepthDeepSDF/files/bottle/13d991326c6e8b14fce33f1a52ee07f2_9_a25_k150_inp_train",
-    "dataset_YCB_train/DepthDeepSDF/files/bottle/109d55a137c042f5760315ac3bf2c13e_4_a25_k150_inp_train",
-    "dataset_YCB_train/DepthDeepSDF/files/bottle/109d55a137c042f5760315ac3bf2c13e_9_a25_k150_inp_train",
-    "dataset_YCB_train/DepthDeepSDF/files/bottle/1349b2169a97a0ff54e1b6f41fdd78a_4_a25_k150_inp_train",
-    "dataset_YCB_train/DepthDeepSDF/files/bottle/1349b2169a97a0ff54e1b6f41fdd78a_9_a25_k150_inp_train",
-    "dataset_YCB_train/DepthDeepSDF/files/bowl/1b4d7803a3298f8477bdcb8816a3fac9_4_a25_k150_inp_train",
-    "dataset_YCB_train/DepthDeepSDF/files/bowl/1b4d7803a3298f8477bdcb8816a3fac9_9_a25_k150_inp_train",
-    "dataset_YCB_train/DepthDeepSDF/files/bowl/2c1df84ec01cea4e525b133235812833_4_a25_k150_inp_train",
-    "dataset_YCB_train/DepthDeepSDF/files/bowl/2c1df84ec01cea4e525b133235812833_9_a25_k150_inp_train",
-    "dataset_YCB_train/DepthDeepSDF/files/bowl/12ddb18397a816c8948bef6886fb4ac_4_a25_k150_inp_train",
-    "dataset_YCB_train/DepthDeepSDF/files/bowl/12ddb18397a816c8948bef6886fb4ac_9_a25_k150_inp_train",
-    "dataset_YCB_train/DepthDeepSDF/files/bowl/292d2dda9923752f3e275dc4ab785b9f_4_a25_k150_inp_train",
-    "dataset_YCB_train/DepthDeepSDF/files/bowl/292d2dda9923752f3e275dc4ab785b9f_9_a25_k150_inp_train",
-    "dataset_YCB_train/DepthDeepSDF/files/laptop/1bb2e873cfbef364cef0dab711014aa8_4_a25_k150_inp_train",
-    "dataset_YCB_train/DepthDeepSDF/files/laptop/1bb2e873cfbef364cef0dab711014aa8_9_a25_k150_inp_train",
-    "dataset_YCB_train/DepthDeepSDF/files/laptop/1f507b26c31ae69be42930af58a36dce_4_a25_k150_inp_train",
-    "dataset_YCB_train/DepthDeepSDF/files/laptop/1f507b26c31ae69be42930af58a36dce_9_a25_k150_inp_train",
-    "dataset_YCB_train/DepthDeepSDF/files/laptop/2c61f0ba3236fe356dae27c417fa89b_4_a25_k150_inp_train",
-    "dataset_YCB_train/DepthDeepSDF/files/laptop/2c61f0ba3236fe356dae27c417fa89b_9_a25_k150_inp_train",
-    "dataset_YCB_train/DepthDeepSDF/files/laptop/16c49793f432cd4b33e4e0fe8cce118e_4_a25_k150_inp_train",
-    "dataset_YCB_train/DepthDeepSDF/files/laptop/16c49793f432cd4b33e4e0fe8cce118e_9_a25_k150_inp_train",
-    "dataset_YCB_train/DepthDeepSDF/files/mug/1a97f3c83016abca21d0de04f408950f_4_a25_k150_inp_train",
-    "dataset_YCB_train/DepthDeepSDF/files/mug/1a97f3c83016abca21d0de04f408950f_9_a25_k150_inp_train",
-    "dataset_YCB_train/DepthDeepSDF/files/mug/10f6e09036350e92b3f21f1137c3c347_4_a25_k150_inp_train",
-    "dataset_YCB_train/DepthDeepSDF/files/mug/10f6e09036350e92b3f21f1137c3c347_9_a25_k150_inp_train",
+    # "dataset_YCB_train/DepthDeepSDF/files/bottle/10f709cecfbb8d59c2536abb1e8e5eab_4_a25_k150_inp_train",
+    # "dataset_YCB_train/DepthDeepSDF/files/bottle/10f709cecfbb8d59c2536abb1e8e5eab_9_a25_k150_inp_train",
+    # "dataset_YCB_train/DepthDeepSDF/files/bottle/13d991326c6e8b14fce33f1a52ee07f2_4_a25_k150_inp_train",
+    # "dataset_YCB_train/DepthDeepSDF/files/bottle/13d991326c6e8b14fce33f1a52ee07f2_9_a25_k150_inp_train",
+    # "dataset_YCB_train/DepthDeepSDF/files/bottle/109d55a137c042f5760315ac3bf2c13e_4_a25_k150_inp_train",
+    # "dataset_YCB_train/DepthDeepSDF/files/bottle/109d55a137c042f5760315ac3bf2c13e_9_a25_k150_inp_train",
+    # "dataset_YCB_train/DepthDeepSDF/files/bottle/1349b2169a97a0ff54e1b6f41fdd78a_4_a25_k150_inp_train",
+    # "dataset_YCB_train/DepthDeepSDF/files/bottle/1349b2169a97a0ff54e1b6f41fdd78a_9_a25_k150_inp_train",
+    # "dataset_YCB_train/DepthDeepSDF/files/bowl/1b4d7803a3298f8477bdcb8816a3fac9_4_a25_k150_inp_train",
+    # "dataset_YCB_train/DepthDeepSDF/files/bowl/1b4d7803a3298f8477bdcb8816a3fac9_9_a25_k150_inp_train",
+    # "dataset_YCB_train/DepthDeepSDF/files/bowl/2c1df84ec01cea4e525b133235812833_4_a25_k150_inp_train",
+    # "dataset_YCB_train/DepthDeepSDF/files/bowl/2c1df84ec01cea4e525b133235812833_9_a25_k150_inp_train",
+    # "dataset_YCB_train/DepthDeepSDF/files/bowl/12ddb18397a816c8948bef6886fb4ac_4_a25_k150_inp_train",
+    # "dataset_YCB_train/DepthDeepSDF/files/bowl/12ddb18397a816c8948bef6886fb4ac_9_a25_k150_inp_train",
+    # "dataset_YCB_train/DepthDeepSDF/files/bowl/292d2dda9923752f3e275dc4ab785b9f_4_a25_k150_inp_train",
+    # "dataset_YCB_train/DepthDeepSDF/files/bowl/292d2dda9923752f3e275dc4ab785b9f_9_a25_k150_inp_train",
+    # "dataset_YCB_train/DepthDeepSDF/files/laptop/1bb2e873cfbef364cef0dab711014aa8_4_a25_k150_inp_train",
+    # "dataset_YCB_train/DepthDeepSDF/files/laptop/1bb2e873cfbef364cef0dab711014aa8_9_a25_k150_inp_train",
+    # "dataset_YCB_train/DepthDeepSDF/files/laptop/1f507b26c31ae69be42930af58a36dce_4_a25_k150_inp_train",
+    # "dataset_YCB_train/DepthDeepSDF/files/laptop/1f507b26c31ae69be42930af58a36dce_9_a25_k150_inp_train",
+    # "dataset_YCB_train/DepthDeepSDF/files/laptop/2c61f0ba3236fe356dae27c417fa89b_4_a25_k150_inp_train",
+    # "dataset_YCB_train/DepthDeepSDF/files/laptop/2c61f0ba3236fe356dae27c417fa89b_9_a25_k150_inp_train",
+    # "dataset_YCB_train/DepthDeepSDF/files/laptop/16c49793f432cd4b33e4e0fe8cce118e_4_a25_k150_inp_train",
+    # "dataset_YCB_train/DepthDeepSDF/files/laptop/16c49793f432cd4b33e4e0fe8cce118e_9_a25_k150_inp_train",
+    # "dataset_YCB_train/DepthDeepSDF/files/mug/1a97f3c83016abca21d0de04f408950f_4_a25_k150_inp_train",
+    # "dataset_YCB_train/DepthDeepSDF/files/mug/1a97f3c83016abca21d0de04f408950f_9_a25_k150_inp_train",
+    # "dataset_YCB_train/DepthDeepSDF/files/mug/10f6e09036350e92b3f21f1137c3c347_4_a25_k150_inp_train",
+    # "dataset_YCB_train/DepthDeepSDF/files/mug/10f6e09036350e92b3f21f1137c3c347_9_a25_k150_inp_train",
     "dataset_YCB_train/DepthDeepSDF/files/mug/15bd6225c209a8e3654b0ce7754570c8_4_a25_k150_inp_train",
     "dataset_YCB_train/DepthDeepSDF/files/mug/15bd6225c209a8e3654b0ce7754570c8_9_a25_k150_inp_train",
     "dataset_YCB_train/DepthDeepSDF/files/mug/128ecbc10df5b05d96eaf1340564a4de_4_a25_k150_inp_train",
@@ -215,28 +232,51 @@ if __name__ == '__main__':
     for name_txt, name_gt in zip(names_txt, names_gt):
         SOURCE_PATH = name_txt
         GT_PATH = name_gt
-        DESTINATION_PATH = 'data_YCB/SdfSamples/dataset_YCB_test/sdf_test_new5_' + name_txt.split('/')[3]
+        DESTINATION_PATH = 'data_YCB/SdfSamples/dataset_YCB_test/test_new6_' + name_txt.split('/')[3]
         input_file = DepthFile(SOURCE_PATH)
         load_depth_file(input_file)
         print("INPUT FILE LOADED")
         output_file = File(SOURCE_PATH, DESTINATION_PATH)
 
+        SOURCE_PATH = os.path.join(f"dataset_YCB_train/DepthDeepSDF/files/{name_txt.split('/')[3]}", name_txt.split('/')[-1].split('_')[0]+'.txt')
+        MESH_PATH =  os.path.join(f"ShapeNetCore/{name_txt.split('/')[3]}", name_txt.split('/')[-1].split('_')[0], 'models/model_normalized.obj')
+        
+        input_mesh_file = ViewsFile(SOURCE_PATH)
+        load_generator_file(input_mesh_file)
+        input_mesh = load_file(MESH_PATH)
+        input_mesh = rotate(input_mesh, np.array([90, 0, 0]))
+        centered_mesh = translate(input_mesh, input_mesh_file.s_o_transformation[:3])
+        scaled_mesh, _ = scale(centered_mesh, input_mesh_file.scale)
+        frame_index = int(name_txt.split('/')[-1].split('_')[1])
+        frame = input_mesh_file.frames[frame_index]
+        scaled_mesh = translate(scaled_mesh, frame[:3])
+        scaled_mesh = rotate(scaled_mesh, frame[3:])
+        scaled_mesh = rotate(scaled_mesh, [0,0,90])
+        scaled_mesh = rotate(scaled_mesh, np.array([-135, 0, 0]))
+        scaled_mesh = translate(scaled_mesh, [0, 0, -1.5])
+        
         gt_file = DepthFile(GT_PATH)
         load_depth_file(gt_file)
         print("GT FILE LOADED")
 
         pcd = generate_pcd(gt_file)
         points = np.asarray(pcd.points)
-        print('pcd', np.mean(points, axis=0))
+        pcd_mean = np.mean(points, axis=0)
+        print('pcd', pcd_mean)
         pcd.estimate_normals()
         
         distances = pcd.compute_nearest_neighbor_distance()
-        avg_dist = np.mean(distances)
+        avg_dist = np.median(distances)
         radius = avg_dist
-        ply = o3d.geometry.TriangleMesh.create_from_point_cloud_ball_pivoting(pcd, o3d.utility.DoubleVector([radius, radius * 2]))
+        ply = o3d.geometry.TriangleMesh.create_from_point_cloud_ball_pivoting(pcd, o3d.utility.DoubleVector([radius, radius * 5, radius * 10, radius * 15]))
+        
+        origin = o3d.geometry.TriangleMesh.create_coordinate_frame(size=1)
+        o3d.visualization.draw_geometries([pcd, scaled_mesh, origin])
+
 
         scene = o3d.t.geometry.RaycastingScene()
-        mesh = o3d.t.geometry.TriangleMesh.from_legacy(ply)
+        # mesh = o3d.t.geometry.TriangleMesh.from_legacy(ply)
+        mesh = o3d.t.geometry.TriangleMesh.from_legacy(scaled_mesh)
         _ = scene.add_triangles(mesh)  # we do not need the geometry ID for mesh
 
         nans = 0

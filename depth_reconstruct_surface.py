@@ -9,11 +9,13 @@ from scipy.interpolate import griddata
 from scipy.spatial import Delaunay
 from depth.utils import *
 from depth.camera import Camera
-from depth_image_generator import File as DepthFile
+from depth_image_generator import DepthImageFile as DepthFile
 from sklearn.preprocessing import StandardScaler
 import alphashape
+import torch
+# import open3d.ml.torch as ml3d
 
-from depth_file_generator import File as ViewsFile
+from depth_file_generator import ViewFile as ViewsFile
 from depth_image_generator import load_generator_file, translate, scale, rotate
 
 class File():
@@ -209,18 +211,32 @@ def critical_points_point_cloud(object_points, h_begin=0.9, h_end=0.5, min_thick
     result_depth_image = np.array(critical_points)
     return result_depth_image
 
+def filter_point_cloud(pcd):
+    points = torch.randn([20,3])
+    queries = torch.randn([10,3])
+    k = 8
+
+    nsearch = o3d.ml.torch.layers.KNNSearch(return_distances=True)
+    ans = nsearch(points, queries, k)
+    # returns a tuple of neighbors_index, neighbors_row_splits, and neighbors_distance
+    # Since there are more than k points and we do not ignore any points we can
+    # reshape the output to [num_queries, k] with
+    neighbors_index = ans.neighbors_index.reshape(10,k)
+    neighbors_distance = ans.neighbors_distance.reshape(10,k)
+    a = 1+2
+
 if __name__ == '__main__':
     vis = o3d.visualization.Visualizer()
     k = 150
     rejection_angle = 25
-    categories = ['mug', 'bottle','bowl', 'laptop', 'can', 'jar']
+    categories = ['mug', 'bottle','bowl', 'laptop']#, 'can', 'jar']
     for category in categories:
-        results_path = f'examples/new5/Reconstructions/600/Meshes/dataset_YCB_test/test_new5_{category}'
+        results_path = f'examples/new6/Reconstructions/1000/Meshes/dataset_YCB_test/test_new6_{category}'
         names_txt = [name for name in os.listdir(results_path) if name.endswith('.npz')]
         for name in names_txt:
             print(name)
             SOURCE_PATH = f"dataset_YCB_train/DepthDeepSDF/files/{category}/{name.replace('_k150_inp_test.npz', '.txt')}"
-            TEST_QUERY_PATH = f"data_YCB/SdfSamples/dataset_YCB_test/test_new5_{category}/{name.replace('.npz', '_query.json')}" #_k150_inp_train.json'
+            TEST_QUERY_PATH = f"data_YCB/SdfSamples/dataset_YCB_test/test_new6_{category}/{name.replace('.npz', '_query.json')}" #_k150_inp_train.json'
             RESULTS_PATH = os.path.join(results_path, name)
             print(RESULTS_PATH.split('/')[-1])
             npz = load_querry_points(RESULTS_PATH)
@@ -256,10 +272,10 @@ if __name__ == '__main__':
                         z = npz[itr][0] + npz[itr][1] + data_file.dz
                         sdf = npz[itr][2]
                         itr += 1
-                        if sdf == previous_sdf:
-                            dupplicated_sdf += 1
-                            previous_sdf = sdf
-                            continue
+                        # if sdf == previous_sdf:
+                        #     dupplicated_sdf += 1
+                        #     previous_sdf = sdf
+                        #     continue
                         object_image.append(np.array([x, y, z, sdf]))
                         previous_sdf = sdf
                     else:
@@ -272,19 +288,29 @@ if __name__ == '__main__':
             
             # critical_points = critical_points_point_cloud(object_points, h_begin=0.00002, h_end=-0.00003, min_thickness=0.00004)
 
-            # object_points.image = object_points.image[object_points.image[:, 3] >= -0.00003]
-            # object_points.image = object_points.image[object_points.image[:, 3] <= 0.00002]
-
-            object_pcd = object_points.to_point_cloud()
-
-            valid_points = np.column_stack((np.asarray(object_pcd.points), object_points.image[:, 3]))
-
             resolution = 100  # Adjust the resolution as needed
+
+            orginal_pcd = object_points.to_point_cloud()
+            valid_points = np.column_stack((np.asarray(orginal_pcd.points), object_points.image[:, 3]))
             volume, spacing = create_volumetric_grid(valid_points, resolution)
             verts, faces, normals, values = apply_marching_cubes(volume, spacing)
 
             pcd = o3d.geometry.PointCloud()  # create point cloud object
             pcd.points = o3d.utility.Vector3dVector(verts)
+
+            object_points.image = object_points.image[object_points.image[:, 3] >= -0.00003]
+            object_points.image = object_points.image[object_points.image[:, 3] <= 0.00002]
+
+            object_pcd_th = object_points.to_point_cloud()
+            # filter_point_cloud(object_pcd)
+
+            valid_points_th = np.column_stack((np.asarray(object_pcd_th.points), object_points.image[:, 3]))
+
+            volume_th, spacing_th = create_volumetric_grid(valid_points_th, resolution)
+            verts_th, faces_th, normals, values = apply_marching_cubes(volume_th, spacing_th)
+
+            pcd_th = o3d.geometry.PointCloud()  # create point cloud object
+            pcd_th.points = o3d.utility.Vector3dVector(verts_th)
 
             # mesh = o3d.geometry.TriangleMesh()
             # mesh.vertices = object_pcd.points 
@@ -297,16 +323,26 @@ if __name__ == '__main__':
 
             # alpha_verts = np.asarray(alpha_shape.vertices)
             # alpha_faces = np.asarray(alpha_shape.faces)
-            mesh = o3d.geometry.TriangleMesh()
-            mesh.vertices = o3d.utility.Vector3dVector(verts)
-            mesh.triangles = o3d.utility.Vector3iVector(faces)
 
-            # o3d.visualization.draw_geometries([pcd], mesh_show_back_face=True)
-            print(1, verts.shape[0], faces.shape)
+            mesh = o3d.geometry.TriangleMesh()
+            mesh.vertices = o3d.utility.Vector3dVector(verts_th)
+            mesh.triangles = o3d.utility.Vector3iVector(faces_th)
+
+            # o3d.visualization.draw_geometries([orginal_pcd], mesh_show_back_face=True, window_name='orginal point cloud')
+            # o3d.visualization.draw_geometries([object_pcd_th], mesh_show_back_face=True, window_name='thresholded point cloud')
+            # o3d.visualization.draw_geometries([pcd], mesh_show_back_face=True, window_name='marching cubes point cloud')
+            # o3d.visualization.draw_geometries([pcd_th], mesh_show_back_face=True, window_name='thresholded marching cubes point cloud')
+
+            print(1, verts_th.shape[0], faces_th.shape)
             print(2, np.asarray(mesh.vertices).shape[0], np.asarray(mesh.triangles).shape[0])
 
-            o3d.io.write_triangle_mesh(TEST_QUERY_PATH.replace('_query.json', '_mesh.ply'), mesh)
-            o3d.io.write_point_cloud(TEST_QUERY_PATH.replace('_query.json', '_points.pcd'), pcd)
+            # o3d.io.write_triangle_mesh(TEST_QUERY_PATH.replace('_query.json', '_mesh.ply'), mesh)
+            o3d.io.write_point_cloud(TEST_QUERY_PATH.replace('.json', '_1000.pcd'), orginal_pcd)
+            o3d.io.write_point_cloud(TEST_QUERY_PATH.replace('_query.json', 'th_neg00003_pos00002_1000.pcd'), pcd)
+            o3d.io.write_point_cloud(TEST_QUERY_PATH.replace('_query.json', 'mc_1000.pcd'), pcd)
+            o3d.io.write_point_cloud(TEST_QUERY_PATH.replace('_query.json', 'th_neg00003_pos00002_mc_1000.pcd'), pcd)
+            print(f"\nSAVED: {TEST_QUERY_PATH}\n\n")
+
             # mesh2 = o3d.io.read_triangle_mesh(TEST_QUERY_PATH.replace('_query.json', '_mesh.ply'))
             # print(3, np.asarray(mesh2.vertices).shape[0], np.asarray(mesh2.triangles).shape[0])
 
@@ -386,7 +422,7 @@ if __name__ == '__main__':
 
             object_points.image = object_points.image[object_points.image[:, 3] < 0]
             object_points.image = object_points.image[object_points.image[:, 3] <= 0.01]
-            object_pcd = object_points.to_point_cloud()
+            object_pcd_th = object_points.to_point_cloud()
             object_sdf_array = object_points.image[:, 3]
             print("object_points shape", object_points.image.shape)
             # exit(888)
@@ -406,13 +442,13 @@ if __name__ == '__main__':
             print(min_sdf, max_sdf)
             object_color_array[:, 2] = (1 - normalized_sdf_array) ** 2
             # object_color_array[normalized_sdf_array == 0, 1] = 1
-            object_pcd.colors = o3d.utility.Vector3dVector(object_color_array)
+            object_pcd_th.colors = o3d.utility.Vector3dVector(object_color_array)
 
-            pcd_points_ndarray = np.concatenate((np.asarray(depth_pcd.points), np.asarray(object_pcd.points)), axis=0)
-            pcd_colors_ndarray = np.concatenate((np.asarray(depth_pcd.colors), np.asarray(object_pcd.colors)), axis=0)
-            pcd = o3d.geometry.PointCloud()  # create point cloud object
-            pcd.points = o3d.utility.Vector3dVector(pcd_points_ndarray)  # set pcd_np as the point cloud points
-            pcd.colors = o3d.utility.Vector3dVector(pcd_colors_ndarray)
+            pcd_points_ndarray = np.concatenate((np.asarray(depth_pcd.points), np.asarray(object_pcd_th.points)), axis=0)
+            pcd_colors_ndarray = np.concatenate((np.asarray(depth_pcd.colors), np.asarray(object_pcd_th.colors)), axis=0)
+            pcd_th = o3d.geometry.PointCloud()  # create point cloud object
+            pcd_th.points = o3d.utility.Vector3dVector(pcd_points_ndarray)  # set pcd_np as the point cloud points
+            pcd_th.colors = o3d.utility.Vector3dVector(pcd_colors_ndarray)
             origin = o3d.geometry.TriangleMesh.create_coordinate_frame(size=0.1)
 
             # pcd_points_ndarray = np.concatenate((np.asarray(depth_pcd.points), np.asarray(object_pcd.points)), axis=0)
@@ -444,4 +480,6 @@ if __name__ == '__main__':
 
             # zwiększyć rozdzielczość i zmniejszyć liczbę sampli
             # grid search parametrów do marching cubes
-            # liczba 
+            
+            # zrobić 5 kategorii
+            # przygotować mesh'e z meshlaba ręcznie

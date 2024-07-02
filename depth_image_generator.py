@@ -7,12 +7,12 @@ import cv2
 
 from depth.utils import *
 from depth.camera import Camera
-from depth_file_generator import File as ViewsFile
+from depth_file_generator import ViewFile as ViewsFile
 
 POWER_FACTOR = 25
 GT = True
 
-class File():
+class DepthImageFile():
     def __init__(self, source_path, destination_dir=''):
         self.source_path = source_path
         self.destination_dir = destination_dir 
@@ -436,7 +436,7 @@ def stack_images(file, input_mesh, camera, view=0):
     return depth_image[file.ny:file.ny+file.ndy, file.nx:file.nx+file.ndx, :]
 
 if __name__ == '__main__':
-    categories = ['can', 'jar']
+    categories = ['mug', 'jar']
     for category in categories:
         names_txt = [name for name in os.listdir(f'dataset_YCB_train/DepthDeepSDF/files/{category}') if not '_' in name]
         saved_files = 0
@@ -448,7 +448,7 @@ if __name__ == '__main__':
             input_file = ViewsFile(SOURCE_PATH)
             load_generator_file(input_file)
 
-            output_file = File(SOURCE_PATH, DESTINATION_PATH)
+            output_file = DepthImageFile(SOURCE_PATH, DESTINATION_PATH)
             output_file.o_c_transformation = input_file.o_c_transformation
 
             input_mesh = load_file(MESH_PATH)
@@ -471,6 +471,23 @@ if __name__ == '__main__':
                 print("VIEW:", view)
                 scaled_mesh = translate(scaled_mesh, frame[:3])
                 scaled_mesh = rotate(scaled_mesh, frame[3:])
+
+                # teraz działa git
+                # TODO:
+                # 1. wziąć stąd funkcję albo w sumie skopiować
+                from depth_test_data_generator import DepthFile, load_depth_file, generate_pcd
+                scaled_mesh = rotate(scaled_mesh, [0,0,90])
+                scaled_mesh = rotate(scaled_mesh, np.array([-135, 0, 0]))
+                scaled_mesh = translate(scaled_mesh, [0, 0, -1.5])
+                GT_PATH = SOURCE_PATH.split('.')[0] + f'_{view}_gt.txt'
+                gt_file = DepthFile(GT_PATH)
+                load_depth_file(gt_file)
+                print("GT FILE LOADED")
+
+                pcd = generate_pcd(gt_file)
+
+                origin = o3d.geometry.TriangleMesh.create_coordinate_frame(size=1)
+                o3d.visualization.draw_geometries([scaled_mesh, pcd, origin])
 
                 mesh = o3d.t.geometry.TriangleMesh.from_legacy(scaled_mesh)
                 scene = o3d.t.geometry.RaycastingScene()
@@ -506,15 +523,15 @@ if __name__ == '__main__':
                 # plt.imshow(img, cmap='gray')
                 # plt.title('Input camera image')
                 # plt.show()
-                if GT:
-                    plt.savefig(os.path.join(output_file.destination_dir, output_file.name + '_' + str(view) + f'_gt.png'))
-                else:
-                    plt.savefig(os.path.join(output_file.destination_dir, output_file.name + '_' + str(view) + f'_a{POWER_FACTOR}.png'))
+                # if GT:
+                #     plt.savefig(os.path.join(output_file.destination_dir, output_file.name + '_' + str(view) + f'_gt.png'))
+                # else:
+                #     plt.savefig(os.path.join(output_file.destination_dir, output_file.name + '_' + str(view) + f'_a{POWER_FACTOR}.png'))
                 scaled_mesh = translate(scaled_mesh, -frame[:3])
                 scaled_mesh = rotate(scaled_mesh, -frame[3:])
 
                 output_file.pixels.append(depth_image)
-                output_file.save(view)
+                # output_file.save(view)
                 output_file.pixels.clear()
             if saved_files == 10:
                 break

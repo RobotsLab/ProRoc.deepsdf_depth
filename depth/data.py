@@ -72,7 +72,7 @@ def read_sdf_samples_into_ram(filename):
 
     # # Convert the cleaned lines to a NumPy array
     # data_array = np.loadtxt(cleaned_lines)
-
+    print(filename)
     with open(filename, 'r') as f:
         input_file = json.load(f)
 
