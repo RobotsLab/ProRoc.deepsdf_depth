@@ -7,7 +7,7 @@ import cv2
 
 from depth.utils import *
 from depth.camera import Camera
-from depth_file_generator import ViewFile as ViewsFile
+from depth_file_generator import ViewFile
 
 POWER_FACTOR = 25
 GT = True
@@ -445,7 +445,7 @@ if __name__ == '__main__':
             MESH_PATH =  os.path.join(f'ShapeNetCore/{category}', name_txt.split('.')[0], 'models/model_normalized.obj')
             DESTINATION_PATH = f'dataset_YCB_train/DepthDeepSDF/files/{category}'
 
-            input_file = ViewsFile(SOURCE_PATH)
+            input_file = ViewFile(SOURCE_PATH)
             load_generator_file(input_file)
 
             output_file = DepthImageFile(SOURCE_PATH, DESTINATION_PATH)
@@ -551,7 +551,8 @@ if __name__ == '__main__':
             # telefon, aprat, miska, kubek, butelka, laptop - przedmioty biurkowe
             # zmierzyć metryki
 
-            # zrobić dot product w rejection sampling do powierzchni - bardziej nieliniowa funkcja odrzucenia
+            # zrobić dot product w rejection sampling do powierzchni - bardziej nieliniowa funkcja odrzucenia   !!!!
+
             # wygenerować mesh - kernel density? w 3D z Nearest Neighbour Search
             # idąc po promieniu dla każdego piksela akumuluję wartość dla punktów znajdujących się w promieniu r
             # ważyć je exp^{wartość/odległość} i zrobić wartość krytyczną (próg) dla której będzie powierzchnia
@@ -564,3 +565,22 @@ if __name__ == '__main__':
             
             # sprawdzić czy dane generowane są równolegle
             # alternatywa idziemy po promieniu i szukamy zmiany znaku wartości sdf - tam powstaje punkt należący do trójkąta
+
+            # nasycenie nieliniowe kolorów do wizualizacji
+            # dane do json
+            # odwrócić wartości sdf - na zewnątrz 0 wewnątrz dodatnie wartości
+            # ASAP wysłać dane
+            # badanie na 1 obiekcie, 50 widoków
+
+            # try new parameters in meshlab
+            # 1. apply default params for edge cases
+            # 2. try grid search for these cases to improve quality
+
+            # Check directions for development
+            # 1. increase number of objects up to 6, keep one similar object and one different for testing set
+            # 2. increase number of views;  change increment in degrees: 5, 10, 15
+            # 3. mesh reconstruction - check meaning of the params
+            # 4. compare to deepsdf - include metrics, save point clouds at any step from deepsdf
+
+            # 5. train with 6 objects - increase/keep value of increment
+                # "10f6e09036350e92b3f21f1137c3c347_9_a25_k150_inp_test",

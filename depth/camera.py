@@ -2,7 +2,7 @@ import open3d as o3d
 import numpy as np
 
 class Camera():
-    def __init__(self, Fx, Fy, Cx, Cy, width, height, intrinsic_matrix):
+    def __init__(self, Fx = 924, Fy = 924, Cx = 640, Cy = 360, width = 1280, height = 720, intrinsic_matrix = None):
 
         self.Fx = Fx
         self.Fy = Fy
@@ -10,7 +10,9 @@ class Camera():
         self.Cy = Cy
         self.width = width
         self.height = height
-        self.intrinsic_matrix = intrinsic_matrix
+        self.intrinsic_matrix = o3d.core.Tensor([[self.Fx, 0, self.Cx],
+                                       [0, self.Fy, self.Cy],
+                                       [0, 0, 1]])   
         self.extrinsic_matrix = np.eye(4)
 
     def translate(self, tx, ty, tz):

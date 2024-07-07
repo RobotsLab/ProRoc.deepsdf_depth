@@ -11,14 +11,14 @@ from depth.utils import *
 from depth.camera import Camera
 from depth_image_generator import DepthImageFile as DepthFile
 
-from depth_file_generator import ViewFile
+from depth_file_generator import ViewFile as ViewsFile
 from depth_image_generator import load_generator_file, translate, scale, rotate
 
 
 K = 150
 REJECTION_ANGLE = 25
 
-class TrainingFile():
+class File():
     def __init__(self, source_path, destination_dir):
         self.source_path = source_path
         self.destination_dir = destination_dir 
@@ -179,96 +179,20 @@ def linspace_sampling(rd, fornt_bbox_z, back_bbox_z, num_samples, unique, visual
                 continue
 
         visualize_dict[key].append([rd, dd, sdf])
-    
-    for i, point_z in enumerate(unique):
-        dist = 0.001
-        if len(unique) > 1 and i == 0:
-            dist = min([dist, unique[i+1] - point_z])
-        elif len(unique) > 1 and i == len(unique) - 1:
-            dist = min([dist, point_z - unique[i - 1]])
-        elif len(unique) > 1:
-            dist = min([dist, point_z - unique[i - 1], unique[i+1] - point_z])
-
-        random_dist = random.uniform(0., dist)
-        pos_sample = point_z + random_dist
-        neg_sample = point_z - random_dist
-
-        pos_dd = pos_sample - rd - fornt_bbox_z
-        neg_dd = neg_sample - rd - fornt_bbox_z
-
-        if halo:
-            z = fornt_bbox_z + rd - neg_dd
-            x = (input_file.cx - u) * z / input_file.f  # y on image is x in real world
-            y = (input_file.cy - v) * z / input_file.f  # x on image is y in real world
-
-            query_point = o3d.core.Tensor([[x, y, z]], dtype=o3d.core.Dtype.Float32)
-
-            # Compute distance of the query point from the surface
-            sdf = scene.compute_distance(query_point).item()
-            # rejection sampling
-            sdf = rejection_sampling(sdf)
-            if sdf >= 0:
-                visualize_dict[key].append([rd, neg_dd, sdf])
-
-            z = fornt_bbox_z + rd - pos_dd
-            x = (input_file.cx - u) * z / input_file.f  # y on image is x in real world
-            y = (input_file.cy - v) * z / input_file.f  # x on image is y in real world
-
-            query_point = o3d.core.Tensor([[x, y, z]], dtype=o3d.core.Dtype.Float32)
-
-            # Compute distance of the query point from the surface
-            sdf = scene.compute_distance(query_point).item()
-            # rejection sampling
-            sdf = rejection_sampling(sdf)
-            if sdf >= 0:
-                visualize_dict[key].append([rd, pos_dd, sdf])
-
-        elif i % 2 == 0 and not halo:
-            z = fornt_bbox_z + rd - neg_dd
-            x = (input_file.cx - u) * z / input_file.f  # y on image is x in real world
-            y = (input_file.cy - v) * z / input_file.f  # x on image is y in real world
-
-            query_point = o3d.core.Tensor([[x, y, z]], dtype=o3d.core.Dtype.Float32)
-
-            # Compute distance of the query point from the surface
-            sdf = scene.compute_distance(query_point).item()
-            # rejection sampling
-            sdf = rejection_sampling(sdf)
-            if sdf >= 0:
-                visualize_dict[key].append([rd, neg_dd, sdf])
-                visualize_dict[key].append([rd, pos_dd, 0])
-        elif i % 2 == 1 and not halo:
-            z = fornt_bbox_z + rd - pos_dd
-            x = (input_file.cx - u) * z / input_file.f  # y on image is x in real world
-            y = (input_file.cy - v) * z / input_file.f  # x on image is y in real world
-
-            query_point = o3d.core.Tensor([[x, y, z]], dtype=o3d.core.Dtype.Float32)
-
-            # Compute distance of the query point from the surface
-            sdf = scene.compute_distance(query_point).item()
-            # rejection sampling
-            sdf = rejection_sampling(sdf)
-            if sdf >= 0:
-                visualize_dict[key].append([rd, pos_dd, sdf])
-                visualize_dict[key].append([rd, neg_dd, 0])
-    # value = visualize_dict[key]
-    # print(value)
-
 
 if __name__ == '__main__':
-    categories = ['can']  # 'mug', 'bottle', 'bowl', 'laptop', 'jar', 'can']  # 'bottle', 'bowl', 
+    categories = ['can', 'jar']  # 'mug', 'bottle', 'bowl', 'laptop']  # 'bottle', 'bowl', 
     for category in categories:
         names_txt = [name for name in os.listdir(f'dataset_YCB_train/DepthDeepSDF/files/{category}') if '_a' in name and name.endswith(".txt")]
-        DESTINATION_PATH = f'dataset_YCB_train/DepthDeepSDF/files/{category}_new'
+        DESTINATION_PATH = f'dataset_YCB_train/DepthDeepSDF/files/{category}'
         saved_files = 0
         for name_txt in names_txt:
             view = int(name_txt.split('_')[1])
-            object_name = name_txt.split('_')[0]
-            # if view <= 7:
-            #     continue
-            # if name_txt.split('.')[0] + f'_a{REJECTION_ANGLE}_inp_train.txt' in os.listdir(f'dataset_YCB_train/DepthDeepSDF/files/{category}'):
-            #     continue
-            SOURCE_PATH = os.path.join(DESTINATION_PATH.replace('_new', ''), name_txt)
+            if view <= 7:
+                continue
+            if name_txt.split('.')[0] + f'_a{REJECTION_ANGLE}_inp_train.txt' in os.listdir(f'dataset_YCB_train/DepthDeepSDF/files/{category}'):
+                continue
+            SOURCE_PATH = os.path.join(DESTINATION_PATH, name_txt)
             GT_PATH = SOURCE_PATH.replace(f'_a{REJECTION_ANGLE}', '_gt')
             print(SOURCE_PATH, GT_PATH)
 
@@ -278,7 +202,7 @@ if __name__ == '__main__':
             except FileNotFoundError:
                 print(f"file not found {input_file}")
                 continue
-            output_file = TrainingFile(SOURCE_PATH, DESTINATION_PATH)
+            output_file = File(SOURCE_PATH, DESTINATION_PATH)
 
             gt_file = DepthFile(GT_PATH)
             try:
@@ -286,40 +210,20 @@ if __name__ == '__main__':
             except FileNotFoundError:
                 print(f"file not found {gt_file}")
                 continue
-
-            MESH_SOURCE_PATH = os.path.join(f"dataset_YCB_train/DepthDeepSDF/files/{category}", object_name+'.txt')
-            MESH_PATH =  os.path.join(f"ShapeNetCore/{category}", object_name, 'models/model_normalized.obj')
-        
-            input_mesh_file = ViewFile(MESH_SOURCE_PATH)
-            load_generator_file(input_mesh_file)
-            input_mesh = load_file(MESH_PATH)
-            input_mesh = rotate(input_mesh, np.array([90, 0, 0]))
-            centered_mesh = translate(input_mesh, input_mesh_file.s_o_transformation[:3])
-            scaled_mesh, _ = scale(centered_mesh, input_mesh_file.scale)
-            frame_index = int(name_txt.split('/')[-1].split('_')[1])
-            frame = input_mesh_file.frames[frame_index]
-            scaled_mesh = translate(scaled_mesh, frame[:3])
-            scaled_mesh = rotate(scaled_mesh, frame[3:])
-            scaled_mesh = rotate(scaled_mesh, [0,0,90])
-            scaled_mesh = rotate(scaled_mesh, np.array([-135, 0, 0]))
-            scaled_mesh = translate(scaled_mesh, [0, 0, -1.5])
-
-            # pcd = generate_pcd(gt_file)
-            # points = np.asarray(pcd.points)
-            # print('pcd', np.mean(points, axis=0))
-
-            # pcd.estimate_normals()
+            pcd = generate_pcd(gt_file)
+            points = np.asarray(pcd.points)
+            print('pcd', np.mean(points, axis=0))
+            pcd.estimate_normals()
             
-            # distances = pcd.compute_nearest_neighbor_distance()
-            # avg_dist = np.mean(distances)
-            # radius = avg_dist
-            # ply = o3d.geometry.TriangleMesh.create_from_point_cloud_ball_pivoting(pcd, o3d.utility.DoubleVector([radius, radius * 2]))
-
+            distances = pcd.compute_nearest_neighbor_distance()
+            avg_dist = np.mean(distances)
+            radius = avg_dist
+            ply = o3d.geometry.TriangleMesh.create_from_point_cloud_ball_pivoting(pcd, o3d.utility.DoubleVector([radius, radius * 2]))
+            o3d.visualization.draw_geometries([pcd, ply])
+            # GET RID OF ALL BALL PIVOTINGS!!!
             scene = o3d.t.geometry.RaycastingScene()
-            mesh = o3d.t.geometry.TriangleMesh.from_legacy(scaled_mesh)
+            mesh = o3d.t.geometry.TriangleMesh.from_legacy(ply)
             _ = scene.add_triangles(mesh)  # we do not need the geometry ID for mesh
-            # origin = o3d.geometry.TriangleMesh.create_coordinate_frame(size=1)
-            # o3d.visualization.draw_geometries([pcd, scaled_mesh, origin])
 
             nans = 0
             problems = 0
@@ -371,7 +275,7 @@ if __name__ == '__main__':
             print("PROBLEMS", problems)
             print("Samples", samples)
             print("--------------------------------------")
-            if '_7_' in name_txt:
+            if '_9_' in name_txt:
                 saved_files += 1
             if saved_files == 10:
                 break

@@ -142,8 +142,8 @@ if __name__ == '__main__':
     rejection_angle = 25
 
     for b in range(1):
-        SOURCE_PATH = f'dataset_YCB_train/DepthDeepSDF/files/bottle/10f709cecfbb8d59c2536abb1e8e5eab_4_a25.txt'
-        INPUT_PATH = f'data_YCB/SdfSamples/dataset_YCB_test/test_new5_bottle/10f709cecfbb8d59c2536abb1e8e5eab_4_a25_k150_inp_test.json'
+        SOURCE_PATH = f'dataset_YCB_train/DepthDeepSDF/files/mug/10f6e09036350e92b3f21f1137c3c347_0_a25.txt'
+        INPUT_PATH = f'dataset_YCB_train/DepthDeepSDF/files/mug_new/10f6e09036350e92b3f21f1137c3c347_0_a25_k150_inp_train.json'
         try:
             data_file = DepthFile(SOURCE_PATH)
             load_depth_file(data_file)
@@ -173,12 +173,14 @@ if __name__ == '__main__':
                         object_image.append(np.array([x, y, z, sdf]))
 
             object_points = PointsFromDepth(data_file, object_image)
+
+            object_points.image = object_points.image[(object_points.image[:, 3] >= .0) & (object_points.image[:, 3] < 0.001)]
+
             object_pcd = object_points.to_point_cloud()
             object_sdf_array = object_points.image[:, 3]
 
             object_color_array = np.zeros((len(object_sdf_array), 3))
 
-            # object_sdf_array = np.clip(object_sdf_array, 0, 0.01)
             min_sdf = np.min(object_sdf_array)
             mean_sdf = np.mean(object_sdf_array)
             max_sdf = np.max(object_sdf_array)
@@ -218,13 +220,9 @@ if __name__ == '__main__':
 
             vis.destroy_window()
 
+            a = 1+2
             # o3d.visualization.draw_geometries([pcd, origin])
             # o3d.io.write_point_cloud(f'dataset_YCB_train/DepthDeepSDF/files/untitled_1_{b}_a{rejection_angle}_k{k}_inp.pcd', pcd)
         except:
             print("NO FILE", SOURCE_PATH)
                 
-        #nasycenie nieliniowe kolorów do wizualizacji
-        # dane do json
-        # odwrócić wartości sdf - na zewnątrz 0 wewnątrz dodatnie wartości
-        # ASAP wysłać dane
-        # badanie na 1 obiekcie, 50 widoków
