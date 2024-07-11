@@ -119,16 +119,18 @@ if __name__ == '__main__':
         names = os.listdir(f'ShapeNetCore/{category}')
         refused_names = []
         generated_files = [gf.split('_')[0] for gf in os.listdir(f'examples/{experiment_name}/data/{category}') if gf.endswith('.json')]
-        if len(generated_files) >= 10:
-            continue
         accepted_names = len(generated_files)
+        # if accepted_names >= 20:
+        #     continue
         with open(f'examples/{experiment_name}/data/{category}/refused_names.txt', 'r') as file:
             lines = file.readlines()
             for line in lines:
                 generated_files.append(line.rstrip('\n'))
 
         for name in names:
+            name = '275729fcdc9bf1488afafc80c93c27a9'
             if name in generated_files:
+                print("File was processed earlier")
                 continue
             SOURCE_PATH = os.path.join(f'ShapeNetCore/{category}', name, 'models/model_normalized.obj')
             DESTINATION_PATH = f'examples/{experiment_name}/data/{category}'

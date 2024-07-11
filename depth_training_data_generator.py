@@ -9,10 +9,9 @@ from scipy.spatial import KDTree
 
 from depth.utils import *
 from depth.camera import Camera
-from depth_image_generator import DepthImageFile as DepthFile
+from depth_image_generator import DepthImageFile
 
-from depth_file_generator import ViewFile
-from depth_image_generator import load_generator_file, translate, scale, rotate
+from depth_file_generator import ViewFile, translate, scale, rotate
 
 
 K = 150
@@ -34,7 +33,7 @@ class TrainingFile():
     
     def get_version_(self):
         dir_files = os.listdir(self.destination_dir)
-        file_number = len([x for x in dir_files if x.startswith(self.name) and x.endswith('.txt')]) + 1
+        file_number = len([x for x in dir_files if x.startswith(self.name) and x.endswith('.json')]) + 1
         return file_number
     
     def get_camera_parameters(self, f, cx, cy):
@@ -82,27 +81,18 @@ def load_depth_file(input_file):
         input_file.pixels = [np.array(pixel.split(), dtype=np.float32) for pixel in pixels]
 
 def generate_pcd(input_file):
-    pixels = np.asarray(input_file.pixels)
-    pixels = np.reshape(pixels, (input_file.ndy, input_file.ndx, -1))
+    points = []
+    for key, value in input_file.pixels.items():
+        u, v = key
+        z = value[value != 0]
 
-    points = np.zeros((1,3))
-
-    for image in range(pixels.shape[2]):
-        img = np.zeros((input_file.Ndy, input_file.Ndx))
-        img[input_file.ny:input_file.ny+input_file.ndy,input_file.nx:input_file.nx+input_file.ndx] = pixels[:, :, image]
-        roi_y, roi_x = np.where(img!=0)
-
-        # plt.imshow(img, cmap='gray')
-        # plt.show()
-
-        z = np.array(img[img!=0])
-        x = (input_file.cx - roi_x) * z / input_file.f  # y on image is x in real world
-        y = (input_file.cy - roi_y) * z / input_file.f  # x on image is y in real world
+        x = (input_file.cx - int(u)) * z / input_file.f  # y on image is x in real world
+        y = (input_file.cy - int(v)) * z / input_file.f  # x on image is y in real world
 
         points_data = np.column_stack([x, y, z])
-        points = np.concatenate((points, points_data), axis=0) 
+        points.extend(points_data)
 
-    points = np.delete(points, 0, axis=0)
+    points = np.row_stack(points)
     pcd = o3d.geometry.PointCloud()  # create point cloud object
     pcd.points = o3d.utility.Vector3dVector(points)  # set pcd_np as the point cloud points
 
@@ -256,70 +246,52 @@ def linspace_sampling(rd, fornt_bbox_z, back_bbox_z, num_samples, unique, visual
 
 
 if __name__ == '__main__':
-    categories = ['can']  # 'mug', 'bottle', 'bowl', 'laptop', 'jar', 'can']  # 'bottle', 'bowl', 
+    categories = ['bottle', 'bowl', 'laptop', 'can', 'jar']  # , 'mug'
+    experiment_name = 'new_exp_1'
+    with open(f'examples/{experiment_name}/data/dataset_config.json', 'r') as json_file:
+        config = json.load(json_file)
+    
     for category in categories:
-        names_txt = [name for name in os.listdir(f'dataset_YCB_train/DepthDeepSDF/files/{category}') if '_a' in name and name.endswith(".txt")]
-        DESTINATION_PATH = f'dataset_YCB_train/DepthDeepSDF/files/{category}_new'
+        generated_files = [name.rstrip('.json') for name in os.listdir(f'examples/{experiment_name}/data/training_data/{category}') if name.endswith(".json") and "trai" in name]
+        names_json = [name.rstrip('.json') for name in os.listdir(f'examples/{experiment_name}/data/training_data/{category}') if name.endswith(".json") and not "trai" in name]
+        
+        DESTINATION_PATH = f'examples/{experiment_name}/data/training_data/{category}'
         saved_files = 0
-        for name_txt in names_txt:
-            view = int(name_txt.split('_')[1])
-            object_name = name_txt.split('_')[0]
-            # if view <= 7:
-            #     continue
-            # if name_txt.split('.')[0] + f'_a{REJECTION_ANGLE}_inp_train.txt' in os.listdir(f'dataset_YCB_train/DepthDeepSDF/files/{category}'):
-            #     continue
-            SOURCE_PATH = os.path.join(DESTINATION_PATH.replace('_new', ''), name_txt)
-            GT_PATH = SOURCE_PATH.replace(f'_a{REJECTION_ANGLE}', '_gt')
-            print(SOURCE_PATH, GT_PATH)
+        for name_json in names_json:
+            view = int(name_json.split('view')[1])
+            object_name = name_json.split('_')[0]
 
-            input_file = DepthFile(SOURCE_PATH)
-            try:
-                load_depth_file(input_file)
-            except FileNotFoundError:
-                print(f"file not found {input_file}")
-                continue
+            SOURCE_PATH = os.path.join(f'examples/{experiment_name}/data/training_data/{category}', name_json + '.json')
+            input_file = DepthImageFile(object_name)
+            input_file.load(SOURCE_PATH)
+
             output_file = TrainingFile(SOURCE_PATH, DESTINATION_PATH)
 
-            gt_file = DepthFile(GT_PATH)
-            try:
-                load_depth_file(gt_file)
-            except FileNotFoundError:
-                print(f"file not found {gt_file}")
-                continue
-
-            MESH_SOURCE_PATH = os.path.join(f"dataset_YCB_train/DepthDeepSDF/files/{category}", object_name+'.txt')
+            MESH_SOURCE_PATH = os.path.join(f"examples/{experiment_name}/data/{category}", object_name + f"_{config['rotation_step']}.json")
             MESH_PATH =  os.path.join(f"ShapeNetCore/{category}", object_name, 'models/model_normalized.obj')
-        
-            input_mesh_file = ViewFile(MESH_SOURCE_PATH)
-            load_generator_file(input_mesh_file)
+
+            input_mesh_file = ViewFile(object_name)
+            input_mesh_file.load(MESH_SOURCE_PATH)
             input_mesh = load_file(MESH_PATH)
             input_mesh = rotate(input_mesh, np.array([90, 0, 0]))
             centered_mesh = translate(input_mesh, input_mesh_file.s_o_transformation[:3])
             scaled_mesh, _ = scale(centered_mesh, input_mesh_file.scale)
-            frame_index = int(name_txt.split('/')[-1].split('_')[1])
-            frame = input_mesh_file.frames[frame_index]
+
+            frame = input_mesh_file.frames[view]
             scaled_mesh = translate(scaled_mesh, frame[:3])
             scaled_mesh = rotate(scaled_mesh, frame[3:])
             scaled_mesh = rotate(scaled_mesh, [0,0,90])
             scaled_mesh = rotate(scaled_mesh, np.array([-135, 0, 0]))
-            scaled_mesh = translate(scaled_mesh, [0, 0, -1.5])
+            scaled_mesh = translate(scaled_mesh, [0, 0, 1.5])
 
-            # pcd = generate_pcd(gt_file)
-            # points = np.asarray(pcd.points)
-            # print('pcd', np.mean(points, axis=0))
-
-            # pcd.estimate_normals()
-            
-            # distances = pcd.compute_nearest_neighbor_distance()
-            # avg_dist = np.mean(distances)
-            # radius = avg_dist
-            # ply = o3d.geometry.TriangleMesh.create_from_point_cloud_ball_pivoting(pcd, o3d.utility.DoubleVector([radius, radius * 2]))
+            pcd = generate_pcd(input_file)
+            points = np.asarray(pcd.points)
+            print('pcd', np.mean(points, axis=0))
 
             scene = o3d.t.geometry.RaycastingScene()
             mesh = o3d.t.geometry.TriangleMesh.from_legacy(scaled_mesh)
             _ = scene.add_triangles(mesh)  # we do not need the geometry ID for mesh
-            # origin = o3d.geometry.TriangleMesh.create_coordinate_frame(size=1)
-            # o3d.visualization.draw_geometries([pcd, scaled_mesh, origin])
+
 
             nans = 0
             problems = 0
@@ -371,7 +343,7 @@ if __name__ == '__main__':
             print("PROBLEMS", problems)
             print("Samples", samples)
             print("--------------------------------------")
-            if '_7_' in name_txt:
+            if '_9_' in name_json:
                 saved_files += 1
             if saved_files == 10:
                 break
