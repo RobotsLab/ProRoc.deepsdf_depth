@@ -393,7 +393,7 @@ if __name__ == '__main__':
             print("===================================================")
             print("SOURCE PATH", SOURCE_PATH)
             for view, frame in enumerate(view_file.frames):
-                if name + f"_{config['rotation_step']}_a{POWER_FACTOR}_view{view}" in generated_files:
+                if not name + f"_{config['rotation_step']}_a{POWER_FACTOR}_view{view}" in generated_files:
                     print("File was processed earlier")
                     continue
                 scaled_mesh = translate(scaled_mesh, frame[:3])
@@ -427,6 +427,9 @@ if __name__ == '__main__':
                 print(f"CURRENT ITERATION: {current_iteration} OUT OF {len(names_json)}")
 
                 if depth_image is None:
+                    scaled_mesh = translate(scaled_mesh, -frame[:3])
+                    scaled_mesh = rotate(scaled_mesh, -frame[3:])
+                    depth_image_file.pixels.clear()
                     print("DEPTH IMAGE IS NONE", name_json)
                     continue
                 
@@ -495,3 +498,9 @@ if __name__ == '__main__':
 
             # 5. train with 6 objects - increase/keep value of increment
                 # "10f6e09036350e92b3f21f1137c3c347_9_a25_k150_inp_test",
+
+            # 6. przygotować tabele z obiketami i widokami
+            # 7. w deepsdf skalowanie do 0.2
+            # 8. wysłać pcd i ply z meshlab
+            # 2/3 widoków do treningu i 1/3 widoków do testu
+            # 6 obiektów - 4 do treningu 2 do testu

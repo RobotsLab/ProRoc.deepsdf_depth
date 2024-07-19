@@ -246,21 +246,42 @@ def linspace_sampling(rd, fornt_bbox_z, back_bbox_z, num_samples, unique, visual
 
 
 if __name__ == '__main__':
-    categories = ['bottle', 'bowl', 'laptop', 'can', 'jar']  # , 'mug'
+    files = [
+        '10f709cecfbb8d59c2536abb1e8e5eab',
+        '13d991326c6e8b14fce33f1a52ee07f2',
+        '109d55a137c042f5760315ac3bf2c13e',
+        '1349b2169a97a0ff54e1b6f41fdd78a',
+        '1b4d7803a3298f8477bdcb8816a3fac9',
+        '2c1df84ec01cea4e525b133235812833',
+        '12ddb18397a816c8948bef6886fb4ac',
+        '292d2dda9923752f3e275dc4ab785b9f',
+        '1f507b26c31ae69be42930af58a36dce',
+        '2c61f0ba3236fe356dae27c417fa89b',
+        '2134ad3fc25a6284193a4c984002ed32',
+        '17069b6604fc28bfa2f5beb253216d5b',
+        '1eaf8db2dd2b710c7d5b1b70ae595e60',
+        '10f6e09036350e92b3f21f1137c3c347',
+        '15bd6225c209a8e3654b0ce7754570c8',
+        '141f1db25095b16dcfb3760e4293e310'
+    ]
+    categories = ['laptop', 'bottle', 'bowl', 'jar', 'mug', 'can']
     experiment_name = 'new_exp_1'
     with open(f'examples/{experiment_name}/data/dataset_config.json', 'r') as json_file:
         config = json.load(json_file)
     
     for category in categories:
-        generated_files = [name.rstrip('.json') for name in os.listdir(f'examples/{experiment_name}/data/training_data/{category}') if name.endswith(".json") and "trai" in name]
-        names_json = [name.rstrip('.json') for name in os.listdir(f'examples/{experiment_name}/data/training_data/{category}') if name.endswith(".json") and not "trai" in name]
+        generated_files = [name.split('_k150')[0] for name in os.listdir(f'examples/{experiment_name}/data/training_data/{category}') if name.endswith(".json") and "train" in name]
+        names_json = [name.rstrip('.json') for name in os.listdir(f'examples/{experiment_name}/data/training_data/{category}') if name.endswith(".json") and not "train" in name]
         
         DESTINATION_PATH = f'examples/{experiment_name}/data/training_data/{category}'
         saved_files = 0
         for name_json in names_json:
             view = int(name_json.split('view')[1])
+            if view in [4, 9]:
+                continue
             object_name = name_json.split('_')[0]
-
+            if not object_name in files:
+                continue
             SOURCE_PATH = os.path.join(f'examples/{experiment_name}/data/training_data/{category}', name_json + '.json')
             input_file = DepthImageFile(object_name)
             input_file.load(SOURCE_PATH)
@@ -284,9 +305,9 @@ if __name__ == '__main__':
             scaled_mesh = rotate(scaled_mesh, np.array([-135, 0, 0]))
             scaled_mesh = translate(scaled_mesh, [0, 0, 1.5])
 
-            pcd = generate_pcd(input_file)
-            points = np.asarray(pcd.points)
-            print('pcd', np.mean(points, axis=0))
+            # pcd = generate_pcd(input_file)
+            # points = np.asarray(pcd.points)
+            # print('pcd', np.mean(points, axis=0))
 
             scene = o3d.t.geometry.RaycastingScene()
             mesh = o3d.t.geometry.TriangleMesh.from_legacy(scaled_mesh)
@@ -305,10 +326,9 @@ if __name__ == '__main__':
             back_bbox_z = input_file.dz2  # - 0.1
             print(len(input_file.pixels))
 
-            for i, pixel in enumerate(input_file.pixels):
-                unique = np.unique(pixel[pixel!=0])
-                x = (i % input_file.ndx) + input_file.nx
-                y = (i // input_file.ndx) + input_file.ny
+            for key, value in input_file.pixels.items():
+                unique = np.unique(value[value!=0])
+                x, y = key
                 key = f"{x}, {y}"
                 visualize_dict[key] = []
 
@@ -343,7 +363,7 @@ if __name__ == '__main__':
             print("PROBLEMS", problems)
             print("Samples", samples)
             print("--------------------------------------")
-            if '_9_' in name_json:
+            if '_8_' in name_json:
                 saved_files += 1
-            if saved_files == 10:
+            if saved_files == 8:
                 break

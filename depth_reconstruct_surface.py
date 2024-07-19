@@ -231,12 +231,12 @@ if __name__ == '__main__':
     rejection_angle = 25
     categories = ['mug', 'bottle','bowl', 'laptop']#, 'can', 'jar']
     for category in categories:
-        results_path = f'examples/new6/Reconstructions/1000/Meshes/dataset_YCB_test/test_new6_{category}'
+        results_path = f'examples/new_exp1/Reconstructions/600/Meshes/dataset_YCB_test/test_new4_{category}'
         names_txt = [name for name in os.listdir(results_path) if name.endswith('.npz')]
         for name in names_txt:
             print(name)
             SOURCE_PATH = f"dataset_YCB_train/DepthDeepSDF/files/{category}/{name.replace('_k150_inp_test.npz', '.txt')}"
-            TEST_QUERY_PATH = f"data_YCB/SdfSamples/dataset_YCB_test/test_new6_{category}/{name.replace('.npz', '_query.json')}" #_k150_inp_train.json'
+            TEST_QUERY_PATH = f"data_YCB/SdfSamples/dataset_YCB_test/test_new4_{category}/{name.replace('.npz', '_query.json')}" #_k150_inp_train.json'
             RESULTS_PATH = os.path.join(results_path, name)
             print(RESULTS_PATH.split('/')[-1])
             npz = load_querry_points(RESULTS_PATH)
