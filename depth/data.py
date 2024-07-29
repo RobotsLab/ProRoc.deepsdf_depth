@@ -107,7 +107,6 @@ def unpack_sdf_samples(filename, subsample=None):
         # print(data_array)
         with open(filename, 'r') as f:
             input_file = json.load(f)
-
         object_image = []
 
         for key, value in input_file.items():
@@ -119,18 +118,12 @@ def unpack_sdf_samples(filename, subsample=None):
                     rd = row[1]
                     sdf = row[2]
                     object_image.append(np.array([dd, rd, sdf]))
-
         data_array = np.vstack(object_image)
-
         samples = torch.from_numpy(data_array)
-
         # if data_array[data_array < 0].any():
         #     print(filename, 'TUTAJ')
-
         random_indices = (torch.rand(subsample) * data_array.shape[0]).long()
-
         samples = torch.index_select(samples, 0, random_indices)
-
         return samples
 
     except:

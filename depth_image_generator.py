@@ -364,8 +364,8 @@ def stack_images(file, input_mesh, camera, view=0):
     return depth_image[file.ny:file.ny+file.ndy, file.nx:file.nx+file.ndx, :]
 
 if __name__ == '__main__':
-    categories = ['bottle', 'bowl', 'laptop', 'mug', 'can', 'jar']
-    experiment_name = 'new_exp_1'
+    categories = ['bottle', 'bowl', 'mug']
+    experiment_name = 'new_exp_2'
     with open(f'examples/{experiment_name}/data/dataset_config.json', 'r') as json_file:
         config = json.load(json_file)
     
@@ -393,7 +393,7 @@ if __name__ == '__main__':
             print("===================================================")
             print("SOURCE PATH", SOURCE_PATH)
             for view, frame in enumerate(view_file.frames):
-                if not name + f"_{config['rotation_step']}_a{POWER_FACTOR}_view{view}" in generated_files:
+                if name + f"_{config['rotation_step']}_a{POWER_FACTOR}_view{view}" in generated_files:
                     print("File was processed earlier")
                     continue
                 scaled_mesh = translate(scaled_mesh, frame[:3])

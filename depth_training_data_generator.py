@@ -103,7 +103,10 @@ def generate_pcd(input_file):
 
 def rejection_sampling(sdf):
     probability = random.random()
-    if probability < np.exp(-K * sdf):
+    rejection_function = np.exp(-K * sdf)
+    if rejection_function < 0.3:
+        rejection_function += 0.3
+    if probability < rejection_function:
         return sdf
     else:
         return -1
@@ -264,8 +267,8 @@ if __name__ == '__main__':
         '15bd6225c209a8e3654b0ce7754570c8',
         '141f1db25095b16dcfb3760e4293e310'
     ]
-    categories = ['laptop', 'bottle', 'bowl', 'jar', 'mug', 'can']
-    experiment_name = 'new_exp_1'
+    categories = ['mug', 'bottle', 'bowl']
+    experiment_name = 'new_exp_3'
     with open(f'examples/{experiment_name}/data/dataset_config.json', 'r') as json_file:
         config = json.load(json_file)
     
@@ -277,11 +280,9 @@ if __name__ == '__main__':
         saved_files = 0
         for name_json in names_json:
             view = int(name_json.split('view')[1])
-            if view in [4, 9]:
-                continue
             object_name = name_json.split('_')[0]
-            if not object_name in files:
-                continue
+            # if not object_name in files:
+            #     continue
             SOURCE_PATH = os.path.join(f'examples/{experiment_name}/data/training_data/{category}', name_json + '.json')
             input_file = DepthImageFile(object_name)
             input_file.load(SOURCE_PATH)
@@ -312,7 +313,6 @@ if __name__ == '__main__':
             scene = o3d.t.geometry.RaycastingScene()
             mesh = o3d.t.geometry.TriangleMesh.from_legacy(scaled_mesh)
             _ = scene.add_triangles(mesh)  # we do not need the geometry ID for mesh
-
 
             nans = 0
             problems = 0
@@ -363,7 +363,16 @@ if __name__ == '__main__':
             print("PROBLEMS", problems)
             print("Samples", samples)
             print("--------------------------------------")
-            if '_8_' in name_json:
-                saved_files += 1
-            if saved_files == 8:
-                break
+            # if '_8_' in name_json:
+            #     saved_files += 1
+            # if saved_files == 8:
+            #     break
+
+            # użyć algorytmu z czerwca - ten który działał
+            # bez laptopów - 3 kategorie co 5 stopni
+            # 4 modele
+            # 1. orginalny deepsdf
+            # 2. depth deepsdf samplowanie tak jak było w treningu bez prior w query
+            # 3. to co z czerwca czyli query z prior
+            # 4. słabsze rejection sampling - sampluje liczbę od 0 do 1, jeżeli wartość jest powyżej 0.3 to biorę gaussa, a poniżej liniowe - czyli zapisuję natychmiast
+            # * 5. to co w 4 tylko że z prior

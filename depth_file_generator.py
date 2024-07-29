@@ -113,7 +113,7 @@ def create_directory(directory):
 if __name__ == '__main__':
     categories = ['bottle', 'bowl', 'laptop', 'mug', 'can', 'jar']
     random_rotation = False
-    experiment_name = 'new_exp_1'
+    experiment_name = 'new_exp_2'
 
     for category in categories:
         names = os.listdir(f'ShapeNetCore/{category}')
@@ -128,7 +128,6 @@ if __name__ == '__main__':
                 generated_files.append(line.rstrip('\n'))
 
         for name in names:
-            name = '275729fcdc9bf1488afafc80c93c27a9'
             if name in generated_files:
                 print("File was processed earlier")
                 continue
@@ -152,22 +151,23 @@ if __name__ == '__main__':
             generated_file.scale = scale_factor
             translations_and_rotations = []
             
-            origin = o3d.geometry.TriangleMesh.create_coordinate_frame(size=0.1)
-            o3d.visualization.draw_geometries([scaled_mesh, origin])
+            # origin = o3d.geometry.TriangleMesh.create_coordinate_frame(size=0.1)
+            # o3d.visualization.draw_geometries([scaled_mesh, origin])
             
-            user_opinion = input("Save the file? [y/n]")
-            if user_opinion.lower() == 'n':
-                refused_names.append(name)
-                continue
-            else:
-                accepted_names += 1
+            # user_opinion = input("Save the file? [y/n]")
+            # if user_opinion.lower() == 'n':
+            #     refused_names.append(name)
+            #     continue
+            # else:
+            #     accepted_names += 1
+            accepted_names += 1
             
             if random_rotation:
                 random_value = random.choice([0, 90, 180, 270])
             else:
                 random_value = 0
 
-            step = 30
+            step = 5
 
             for i in range(10):
                 translations_and_rotations.append(np.array([0.,0.,0.,0 ,0,i*step + random_value]))

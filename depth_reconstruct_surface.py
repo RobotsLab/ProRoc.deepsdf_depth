@@ -9,14 +9,14 @@ from scipy.interpolate import griddata
 from scipy.spatial import Delaunay
 from depth.utils import *
 from depth.camera import Camera
-from depth_image_generator import DepthImageFile as DepthFile
+from depth_image_generator import DepthImageFile
 from sklearn.preprocessing import StandardScaler
 import alphashape
 import torch
 # import open3d.ml.torch as ml3d
 
-from depth_file_generator import ViewFile as ViewsFile
-from depth_image_generator import load_generator_file, translate, scale, rotate
+from depth_file_generator import ViewFile
+from depth_image_generator import translate, scale, rotate
 
 class File():
     def __init__(self, source_path, destination_dir):
@@ -117,10 +117,12 @@ def load_depth_file(input_file):
 def generate_input_pcd(input_file):
     visible_depth_points = []
 
-    for i, pixel in enumerate(input_file.pixels):
-        unique = np.unique(pixel[pixel!=0])
-        x = (i % input_file.ndx) + input_file.nx
-        y = (i // input_file.ndx) + input_file.ny
+    for key, value in input_file.pixels.items():
+        unique = np.unique(value[value!=0])
+        if not unique.any():
+            continue
+        x, y = key
+        key = f"{x}, {y}"
         if unique.any() and len(unique)%2 == 0:
             z = unique[0]
             visible_depth_points.append(np.array([x, y, z]))
@@ -231,18 +233,19 @@ if __name__ == '__main__':
     rejection_angle = 25
     categories = ['mug', 'bottle','bowl', 'laptop']#, 'can', 'jar']
     for category in categories:
-        results_path = f'examples/new_exp1/Reconstructions/600/Meshes/dataset_YCB_test/test_new4_{category}'
+        # c:\Users\micha\OneDrive\Pulpit\DeepSDF\examples\new_exp_1\Reconstructions\600\Meshes\dataset_YCB_test\test_new_exp1_bottle
+        results_path = f'examples/new_exp_1/Reconstructions/600/Meshes/dataset_YCB_test/test_new_exp1_{category}'
         names_txt = [name for name in os.listdir(results_path) if name.endswith('.npz')]
         for name in names_txt:
             print(name)
-            SOURCE_PATH = f"dataset_YCB_train/DepthDeepSDF/files/{category}/{name.replace('_k150_inp_test.npz', '.txt')}"
-            TEST_QUERY_PATH = f"data_YCB/SdfSamples/dataset_YCB_test/test_new4_{category}/{name.replace('.npz', '_query.json')}" #_k150_inp_train.json'
+            SOURCE_PATH = f"data_YCB/SdfSamples/dataset_YCB_train/train_new_exp1_{category}/{name.replace('_k150_inp_test.npz', '.json')}"
+            TEST_QUERY_PATH = f"data_YCB/SdfSamples/dataset_YCB_test/test_new_exp1_{category}/{name.replace('.npz', '_query.json')}" #_k150_inp_train.json'
             RESULTS_PATH = os.path.join(results_path, name)
             print(RESULTS_PATH.split('/')[-1])
             npz = load_querry_points(RESULTS_PATH)
             print("NPZ SHAPE:", npz.shape)
-            data_file = DepthFile(SOURCE_PATH)
-            load_depth_file(data_file)
+            data_file = DepthImageFile(name.split("_")[0])
+            data_file.load(SOURCE_PATH)
             # depth_pcd is point cloud that see camera            
             depth_pcd = generate_input_pcd(data_file)
 
@@ -327,11 +330,12 @@ if __name__ == '__main__':
             mesh = o3d.geometry.TriangleMesh()
             mesh.vertices = o3d.utility.Vector3dVector(verts_th)
             mesh.triangles = o3d.utility.Vector3iVector(faces_th)
+            origin = o3d.geometry.TriangleMesh.create_coordinate_frame(size=0.1)
 
-            # o3d.visualization.draw_geometries([orginal_pcd], mesh_show_back_face=True, window_name='orginal point cloud')
-            # o3d.visualization.draw_geometries([object_pcd_th], mesh_show_back_face=True, window_name='thresholded point cloud')
-            # o3d.visualization.draw_geometries([pcd], mesh_show_back_face=True, window_name='marching cubes point cloud')
-            # o3d.visualization.draw_geometries([pcd_th], mesh_show_back_face=True, window_name='thresholded marching cubes point cloud')
+            # o3d.visualization.draw_geometries([orginal_pcd, origin], mesh_show_back_face=True, window_name='orginal point cloud')
+            # o3d.visualization.draw_geometries([object_pcd_th, origin], mesh_show_back_face=True, window_name='thresholded point cloud')
+            # o3d.visualization.draw_geometries([pcd, origin], mesh_show_back_face=True, window_name='marching cubes point cloud')
+            # o3d.visualization.draw_geometries([pcd_th, origin], mesh_show_back_face=True, window_name='thresholded marching cubes point cloud')
 
             print(1, verts_th.shape[0], faces_th.shape)
             print(2, np.asarray(mesh.vertices).shape[0], np.asarray(mesh.triangles).shape[0])
@@ -342,11 +346,11 @@ if __name__ == '__main__':
             o3d.io.write_point_cloud(TEST_QUERY_PATH.replace('_query.json', 'mc_1000.pcd'), pcd)
             o3d.io.write_point_cloud(TEST_QUERY_PATH.replace('_query.json', 'th_neg00003_pos00002_mc_1000.pcd'), pcd)
             print(f"\nSAVED: {TEST_QUERY_PATH}\n\n")
+            continue
 
             # mesh2 = o3d.io.read_triangle_mesh(TEST_QUERY_PATH.replace('_query.json', '_mesh.ply'))
             # print(3, np.asarray(mesh2.vertices).shape[0], np.asarray(mesh2.triangles).shape[0])
 
-            continue
             # <class 'shapely.geometry.polygon.Polygon'> POLYGON Z ((0.1032942517043708 0 0.1386363677680492, 0.0888330564657589 0.0049663662297643 0.1431818224489689, 0.0785036312953218 0.0099327324595286 0.1477272771298885, 0.0702400911589722 0.0148990986892929 0.154545459151268, 0.0599106659885351 0.0248318311488216 0.1636363685131073, 0 0.1167096063994613 0.1295454584062099, 0 0.1738228180417508 0.0931818209588528, 0.0061976551022622 0.1812723673863973 0.0886363662779331, 0.0661083210907973 0.2259696634542761 0.1045454576611519, 0.0867671714316715 0.2383855790286869 0.1227272763848305, 0.1094919068066331 0.2458351283733334 0.1386363677680492, 0.1404801823179443 0.2458351283733334 0.1386363677680492, 0.1694025727951682 0.2359023959138047 0.1090909123420715, 0.1817978829996927 0.2284528465691583 0.1136363670229912, 0.1941931932042172 0.2135537478798653 0.0840909115970135, 0.1962590782383046 0.2110705647649832 0.0886363662779331, 0.2024567333405668 0.1961714660756902 0.0886363662779331, 0.2045226183746542 0.1390582544334007 0.1386363677680492, 0.2003908483064794 0.0471804791827609 0.1795454598963261, 0.1962590782383046 0.0347645636083502 0.1681818231940269, 0.1859296530678675 0.0198654649190572 0.1590909138321876, 0.173534342863343 0.0099327324595286 0.1477272771298885, 0.1611390326588185 0.0049663662297643 0.1431818224489689, 0.1466778374202066 0 0.1386363677680492, 0.1032942517043708 0 0.1386363677680492)) 0.0
 
             # print("Critical points shape:", critical_points.shape)

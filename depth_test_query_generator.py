@@ -9,17 +9,18 @@ from scipy.spatial import KDTree
 
 from depth.utils import *
 from depth.camera import Camera
-from depth_image_generator import DepthImageFile as DepthFile
+from depth_image_generator import DepthImageFile
 
-from depth_file_generator import ViewFile as ViewsFile
-from depth_image_generator import load_generator_file, translate, scale, rotate
+from depth_file_generator import ViewFile
+from depth_image_generator import translate, scale, rotate
+from depth_training_data_generator import generate_pcd
 
 
 K = 150
 REJECTION_ANGLE = 25
 QUERY = False
 
-class File():
+class QueryFile():
     def __init__(self, source_path, destination_dir):
         self.source_path = source_path
         self.destination_dir = destination_dir 
@@ -84,36 +85,6 @@ def load_depth_file(input_file):
         pixels = file.readlines()
         input_file.pixels = [np.array(pixel.split(), dtype=np.float32) for pixel in pixels]
 
-def generate_pcd(input_file):
-    pixels = np.asarray(input_file.pixels)
-    pixels = np.reshape(pixels, (input_file.ndy, input_file.ndx, -1))
-
-    points = np.zeros((1,3))
-
-    for image in range(pixels.shape[2]):
-        img = np.zeros((input_file.Ndy, input_file.Ndx))
-        img[input_file.ny:input_file.ny+input_file.ndy,input_file.nx:input_file.nx+input_file.ndx] = pixels[:, :, image]
-        roi_y, roi_x = np.where(img!=0)
-
-        # plt.imshow(img, cmap='gray')
-        # plt.show()
-
-        z = np.array(img[img!=0])
-        x = (input_file.cx - roi_x) * z / input_file.f  # y on image is x in real world
-        y = (input_file.cy - roi_y) * z / input_file.f  # x on image is y in real world
-
-        points_data = np.column_stack([x, y, z])
-        points = np.concatenate((points, points_data), axis=0) 
-
-    points = np.delete(points, 0, axis=0)
-    pcd = o3d.geometry.PointCloud()  # create point cloud object
-    pcd.points = o3d.utility.Vector3dVector(points)  # set pcd_np as the point cloud points
-
-    # origin = o3d.geometry.TriangleMesh.create_coordinate_frame(size=0.1)
-    # o3d.visualization.draw_geometries([pcd, origin])
-    
-    return pcd
-
 def rejection_sampling(sdf):
     probability = random.random()
     if probability < np.exp(-K * sdf):
@@ -161,146 +132,150 @@ def halo_sampling(rd, fornt_bbox_z, first_surface, num_samples, unique, visualiz
 
 if __name__ == '__main__':
     train_new4_bottle = [
-    "dataset_YCB_train/DepthDeepSDF/files/bottle/10f709cecfbb8d59c2536abb1e8e5eab_4_a25_k150_inp_train",
-    "dataset_YCB_train/DepthDeepSDF/files/bottle/10f709cecfbb8d59c2536abb1e8e5eab_9_a25_k150_inp_train",
-    "dataset_YCB_train/DepthDeepSDF/files/bottle/13d991326c6e8b14fce33f1a52ee07f2_4_a25_k150_inp_train",
-    "dataset_YCB_train/DepthDeepSDF/files/bottle/13d991326c6e8b14fce33f1a52ee07f2_9_a25_k150_inp_train",
-    "dataset_YCB_train/DepthDeepSDF/files/bottle/109d55a137c042f5760315ac3bf2c13e_4_a25_k150_inp_train",
-    "dataset_YCB_train/DepthDeepSDF/files/bottle/109d55a137c042f5760315ac3bf2c13e_9_a25_k150_inp_train",
-    "dataset_YCB_train/DepthDeepSDF/files/bottle/1349b2169a97a0ff54e1b6f41fdd78a_4_a25_k150_inp_train",
-    "dataset_YCB_train/DepthDeepSDF/files/bottle/1349b2169a97a0ff54e1b6f41fdd78a_9_a25_k150_inp_train",
-    "dataset_YCB_train/DepthDeepSDF/files/bowl/1b4d7803a3298f8477bdcb8816a3fac9_4_a25_k150_inp_train",
-    "dataset_YCB_train/DepthDeepSDF/files/bowl/1b4d7803a3298f8477bdcb8816a3fac9_9_a25_k150_inp_train",
-    "dataset_YCB_train/DepthDeepSDF/files/bowl/2c1df84ec01cea4e525b133235812833_4_a25_k150_inp_train",
-    "dataset_YCB_train/DepthDeepSDF/files/bowl/2c1df84ec01cea4e525b133235812833_9_a25_k150_inp_train",
-    "dataset_YCB_train/DepthDeepSDF/files/bowl/12ddb18397a816c8948bef6886fb4ac_4_a25_k150_inp_train",
-    "dataset_YCB_train/DepthDeepSDF/files/bowl/12ddb18397a816c8948bef6886fb4ac_9_a25_k150_inp_train",
-    "dataset_YCB_train/DepthDeepSDF/files/bowl/292d2dda9923752f3e275dc4ab785b9f_4_a25_k150_inp_train",
-    "dataset_YCB_train/DepthDeepSDF/files/bowl/292d2dda9923752f3e275dc4ab785b9f_9_a25_k150_inp_train",
-    "dataset_YCB_train/DepthDeepSDF/files/laptop/1bb2e873cfbef364cef0dab711014aa8_4_a25_k150_inp_train",
-    "dataset_YCB_train/DepthDeepSDF/files/laptop/1bb2e873cfbef364cef0dab711014aa8_9_a25_k150_inp_train",
-    "dataset_YCB_train/DepthDeepSDF/files/laptop/1f507b26c31ae69be42930af58a36dce_4_a25_k150_inp_train",
-    "dataset_YCB_train/DepthDeepSDF/files/laptop/1f507b26c31ae69be42930af58a36dce_9_a25_k150_inp_train",
-    "dataset_YCB_train/DepthDeepSDF/files/laptop/2c61f0ba3236fe356dae27c417fa89b_4_a25_k150_inp_train",
-    "dataset_YCB_train/DepthDeepSDF/files/laptop/2c61f0ba3236fe356dae27c417fa89b_9_a25_k150_inp_train",
-    "dataset_YCB_train/DepthDeepSDF/files/laptop/16c49793f432cd4b33e4e0fe8cce118e_4_a25_k150_inp_train",
-    "dataset_YCB_train/DepthDeepSDF/files/laptop/16c49793f432cd4b33e4e0fe8cce118e_9_a25_k150_inp_train",
-    "dataset_YCB_train/DepthDeepSDF/files/mug/1a97f3c83016abca21d0de04f408950f_4_a25_k150_inp_train",
-    "dataset_YCB_train/DepthDeepSDF/files/mug/1a97f3c83016abca21d0de04f408950f_9_a25_k150_inp_train",
-    "dataset_YCB_train/DepthDeepSDF/files/mug/10f6e09036350e92b3f21f1137c3c347_4_a25_k150_inp_train",
-    "dataset_YCB_train/DepthDeepSDF/files/mug/10f6e09036350e92b3f21f1137c3c347_9_a25_k150_inp_train",
-    "dataset_YCB_train/DepthDeepSDF/files/mug/15bd6225c209a8e3654b0ce7754570c8_4_a25_k150_inp_train",
-    "dataset_YCB_train/DepthDeepSDF/files/mug/15bd6225c209a8e3654b0ce7754570c8_9_a25_k150_inp_train",
-    "dataset_YCB_train/DepthDeepSDF/files/mug/128ecbc10df5b05d96eaf1340564a4de_4_a25_k150_inp_train",
-    "dataset_YCB_train/DepthDeepSDF/files/mug/128ecbc10df5b05d96eaf1340564a4de_9_a25_k150_inp_train",
-    "dataset_YCB_train/DepthDeepSDF/files/can/2eeefdfc9b70b89eeb153e9a37e99fa5_4_a25_k150_inp_train",
-    "dataset_YCB_train/DepthDeepSDF/files/can/2eeefdfc9b70b89eeb153e9a37e99fa5_9_a25_k150_inp_train",
-    "dataset_YCB_train/DepthDeepSDF/files/can/3a9041d7aa0b4b9ad9802f6365035049_4_a25_k150_inp_train",
-    "dataset_YCB_train/DepthDeepSDF/files/can/3a9041d7aa0b4b9ad9802f6365035049_9_a25_k150_inp_train",
-    "dataset_YCB_train/DepthDeepSDF/files/can/3c8af6b0aeaf13c2abf4b6b757f4f768_4_a25_k150_inp_train",
-    "dataset_YCB_train/DepthDeepSDF/files/can/3c8af6b0aeaf13c2abf4b6b757f4f768_9_a25_k150_inp_train",
-    "dataset_YCB_train/DepthDeepSDF/files/can/3fd196c22459cc66c8687ff9b0b4e4ac_4_a25_k150_inp_train",
-    "dataset_YCB_train/DepthDeepSDF/files/can/3fd196c22459cc66c8687ff9b0b4e4ac_9_a25_k150_inp_train",
-    "dataset_YCB_train/DepthDeepSDF/files/jar/1d7868b4ad0913bf9f6b966b784c8347_4_a25_k150_inp_train",
-    "dataset_YCB_train/DepthDeepSDF/files/jar/1d7868b4ad0913bf9f6b966b784c8347_9_a25_k150_inp_train",
-    "dataset_YCB_train/DepthDeepSDF/files/jar/1dde51480f0c5474a38859fd71bee28c_4_a25_k150_inp_train",
-    "dataset_YCB_train/DepthDeepSDF/files/jar/1dde51480f0c5474a38859fd71bee28c_9_a25_k150_inp_train",
-    "dataset_YCB_train/DepthDeepSDF/files/jar/146f6702601f9c5d8bb41b82b15c6ac_4_a25_k150_inp_train",
-    "dataset_YCB_train/DepthDeepSDF/files/jar/146f6702601f9c5d8bb41b82b15c6ac_9_a25_k150_inp_train",
-    "dataset_YCB_train/DepthDeepSDF/files/jar/151a80ff1ad2fe11c8c4893204f16cf_4_a25_k150_inp_train",
-    "dataset_YCB_train/DepthDeepSDF/files/jar/151a80ff1ad2fe11c8c4893204f16cf_9_a25_k150_inp_train",
+    "examples/new_exp_2/data/training_data/bottle/10f709cecfbb8d59c2536abb1e8e5eab_5_a25_view4.json",
+    "examples/new_exp_2/data/training_data/bottle/10f709cecfbb8d59c2536abb1e8e5eab_5_a25_view9.json",
+    "examples/new_exp_2/data/training_data/bottle/13d991326c6e8b14fce33f1a52ee07f2_5_a25_view4.json",
+    "examples/new_exp_2/data/training_data/bottle/13d991326c6e8b14fce33f1a52ee07f2_5_a25_view9.json",
+    "examples/new_exp_2/data/training_data/bottle/109d55a137c042f5760315ac3bf2c13e_5_a25_view4.json",
+    "examples/new_exp_2/data/training_data/bottle/109d55a137c042f5760315ac3bf2c13e_5_a25_view9.json",
+    "examples/new_exp_2/data/training_data/bottle/1349b2169a97a0ff54e1b6f41fdd78a_5_a25_view4.json",
+    "examples/new_exp_2/data/training_data/bottle/1349b2169a97a0ff54e1b6f41fdd78a_5_a25_view9.json",
+    "examples/new_exp_2/data/training_data/bowl/1b4d7803a3298f8477bdcb8816a3fac9_5_a25_view4.json",
+    "examples/new_exp_2/data/training_data/bowl/1b4d7803a3298f8477bdcb8816a3fac9_5_a25_view9.json",
+    "examples/new_exp_2/data/training_data/bowl/2c1df84ec01cea4e525b133235812833_5_a25_view4.json",
+    "examples/new_exp_2/data/training_data/bowl/2c1df84ec01cea4e525b133235812833_5_a25_view9.json",
+    "examples/new_exp_2/data/training_data/bowl/12ddb18397a816c8948bef6886fb4ac_5_a25_view4.json",
+    "examples/new_exp_2/data/training_data/bowl/12ddb18397a816c8948bef6886fb4ac_5_a25_view9.json",
+    "examples/new_exp_2/data/training_data/bowl/292d2dda9923752f3e275dc4ab785b9f_5_a25_view4.json",
+    "examples/new_exp_2/data/training_data/bowl/292d2dda9923752f3e275dc4ab785b9f_5_a25_view9.json",
+    "examples/new_exp_2/data/training_data/laptop/1bb2e873cfbef364cef0dab711014aa8_5_a25_view4.json",
+    "examples/new_exp_2/data/training_data/laptop/1bb2e873cfbef364cef0dab711014aa8_5_a25_view9.json",
+    "examples/new_exp_2/data/training_data/laptop/1f507b26c31ae69be42930af58a36dce_5_a25_view4.json",
+    "examples/new_exp_2/data/training_data/laptop/1f507b26c31ae69be42930af58a36dce_5_a25_view9.json",
+    "examples/new_exp_2/data/training_data/laptop/2c61f0ba3236fe356dae27c417fa89b_5_a25_view4.json",
+    "examples/new_exp_2/data/training_data/laptop/2c61f0ba3236fe356dae27c417fa89b_5_a25_view9.json",
+    "examples/new_exp_2/data/training_data/laptop/16c49793f432cd4b33e4e0fe8cce118e_5_a25_view4.json",
+    "examples/new_exp_2/data/training_data/laptop/16c49793f432cd4b33e4e0fe8cce118e_5_a25_view9.json",
+    "examples/new_exp_2/data/training_data/mug/1eaf8db2dd2b710c7d5b1b70ae595e60_5_a25_view4.json",
+    "examples/new_exp_2/data/training_data/mug/1eaf8db2dd2b710c7d5b1b70ae595e60_5_a25_view9.json",
+    "examples/new_exp_2/data/training_data/mug/10f6e09036350e92b3f21f1137c3c347_5_a25_view4.json",
+    "examples/new_exp_2/data/training_data/mug/10f6e09036350e92b3f21f1137c3c347_5_a25_view9.json",
+    "examples/new_exp_2/data/training_data/mug/15bd6225c209a8e3654b0ce7754570c8_5_a25_view4.json",
+    "examples/new_exp_2/data/training_data/mug/15bd6225c209a8e3654b0ce7754570c8_5_a25_view9.json",
+    "examples/new_exp_2/data/training_data/mug/141f1db25095b16dcfb3760e4293e310_5_a25_view4.json",
+    "examples/new_exp_2/data/training_data/mug/141f1db25095b16dcfb3760e4293e310_5_a25_view9.json"
 ]
+    experiment_name = 'new_exp_2'
+    categories = ['bottle', 'bowl', 'mug']
+
+    with open(f'examples/{experiment_name}/data/dataset_config.json', 'r') as json_file:
+        config = json.load(json_file)
     
-    names_txt = [name.replace("_k150_inp_train", ".txt") for name in train_new4_bottle]
-    names_gt = [name.replace("_a25_k150_inp_train", "_gt.txt") for name in train_new4_bottle]
-
-    totals = []
-    insiders = []
-    outsiders = []
-    for name_txt, name_gt in zip(names_txt, names_gt):
-        SOURCE_PATH = name_txt
-        GT_PATH = name_gt
-        DESTINATION_PATH = 'data_YCB/SdfSamples/dataset_YCB_test/test_new6_' + name_txt.split('/')[3]
-        input_file = DepthFile(SOURCE_PATH)
-        load_depth_file(input_file)
-        print("INPUT FILE LOADED")
-        output_file = File(SOURCE_PATH, DESTINATION_PATH)
-
-        gt_file = DepthFile(GT_PATH)
-        load_depth_file(gt_file)
-        print("GT FILE LOADED")
-
-        pcd = generate_pcd(gt_file)
-        points = np.asarray(pcd.points)
-        print('pcd', np.mean(points, axis=0))
-        pcd.estimate_normals()
+    for category in categories:
+        names_json = [name.rstrip('.json') for name in os.listdir(f'examples/{experiment_name}/data/training_data/{category}') if name.endswith(".json") and not "trai" in name]
         
-        distances = pcd.compute_nearest_neighbor_distance()
-        avg_dist = np.mean(distances)
-        radius = avg_dist
-        ply = o3d.geometry.TriangleMesh.create_from_point_cloud_ball_pivoting(pcd, o3d.utility.DoubleVector([radius, radius * 2]))
-
-        scene = o3d.t.geometry.RaycastingScene()
-        mesh = o3d.t.geometry.TriangleMesh.from_legacy(ply)
-        _ = scene.add_triangles(mesh)  # we do not need the geometry ID for mesh
-
-        nans = 0
-        problems = 0
-        num_samples = 100
-        max_sdf = 0.02
-        max_saved_sdf = 0
-        samples = 1
-        output_file.pixels = []
-        visualize_dict = {}
-        fornt_bbox_z = input_file.dz  # + 0.05
-        back_bbox_z = input_file.dz2  # - 0.1
-        print(len(input_file.pixels))
-        count_insiders = 0
-        count_outsiders = 0
-        count_totals = 0
-        pcd_points = []
-        for i, pixel in enumerate(input_file.pixels):
-            unique = np.unique(pixel[pixel!=0])
-            if not unique.any():
+        DESTINATION_PATH = f'data_YCB/SdfSamples/dataset_YCB_test/{experiment_name}_{category}'
+        saved_files = 0
+        for name_json in names_json:
+            view = int(name_json.split('view')[1])
+            if not view in [4, 9]:
                 continue
-            x = (i % input_file.ndx) + input_file.nx
-            y = (i // input_file.ndx) + input_file.ny
-            key = f"{x}, {y}"
-            visualize_dict[key] = []
+            object_name = name_json.split('_')[0]
 
-            first_surface = unique[0]
-            rd = first_surface - fornt_bbox_z
-            # sprawdzamy czy liczba przecięć jest parzysta
-            if unique.any() and len(unique)%2 == 0:
-                linspace_sampling(rd, fornt_bbox_z, back_bbox_z, num_samples, unique, visualize_dict, input_file, x, y, scene, pcd_points)
-            elif unique.any() and len(unique) == 1:
-                halo_sampling(rd, fornt_bbox_z, first_surface, num_samples, unique, visualize_dict, input_file, x, y, scene, pcd_points)
-            else:
-                output_file.pixels.append(np.array([np.nan]))
-                visualize_dict[key].append([np.nan])
-        
-        # pcd_points_array = np.row_stack(pcd_points)
+            SOURCE_PATH = os.path.join(f'examples/{experiment_name}/data/training_data/{category}', name_json + '.json')
+            if not SOURCE_PATH in train_new4_bottle:
+                continue
+            input_file = DepthImageFile(object_name)
+            input_file.load(SOURCE_PATH)
 
-        # pcd = o3d.geometry.PointCloud()  # create point cloud object
-        # pcd.points = o3d.utility.Vector3dVector(pcd_points_array)  # set pcd_np as the point cloud points
-        # origin = o3d.geometry.TriangleMesh.create_coordinate_frame(size=0.1)
-        # o3d.visualization.draw_geometries([pcd, ply, origin])
+            output_file = QueryFile(SOURCE_PATH, DESTINATION_PATH)
 
+            MESH_SOURCE_PATH = os.path.join(f"examples/{experiment_name}/data/{category}", object_name + f"_{config['rotation_step']}.json")
+            MESH_PATH =  os.path.join(f"ShapeNetCore/{category}", object_name, 'models/model_normalized.obj')
 
-        outsiders.append(count_outsiders)
-        insiders.append(count_insiders)
-        totals.append(count_totals)
+            input_mesh_file = ViewFile(object_name)
+            input_mesh_file.load(MESH_SOURCE_PATH)
+            input_mesh = load_file(MESH_PATH)
+            input_mesh = rotate(input_mesh, np.array([90, 0, 0]))
+            centered_mesh = translate(input_mesh, input_mesh_file.s_o_transformation[:3])
+            scaled_mesh, _ = scale(centered_mesh, input_mesh_file.scale)
 
-        output_file.save(visualize_dict)
-        print("Total:", len(visualize_dict))
-        print("Max saved sdf:", max_saved_sdf)
+            frame = input_mesh_file.frames[view]
+            scaled_mesh = translate(scaled_mesh, frame[:3])
+            scaled_mesh = rotate(scaled_mesh, frame[3:])
+            scaled_mesh = rotate(scaled_mesh, [0,0,90])
+            scaled_mesh = rotate(scaled_mesh, np.array([-135, 0, 0]))
+            scaled_mesh = translate(scaled_mesh, [0, 0, 1.5])
 
-        print("\nNans:", nans)
-        print("Total:", samples)
-        print("Ratio:", format(nans/samples, ".00%"))
-        print("PROBLEMS", problems)
-        print("Samples", samples)
-        print("--------------------------------------")
-    
-    for i in range(len(totals)):
-        print(totals[i], insiders[i], outsiders[i])
+            # pcd = generate_pcd(input_file)
+            # points = np.asarray(pcd.points)
+            # print('pcd', np.mean(points, axis=0))
+
+            # pcd_mean = np.mean(points, axis=0)
+            # print('pcd', pcd_mean)
+            # pcd.estimate_normals()
+            
+            # distances = pcd.compute_nearest_neighbor_distance()
+            # avg_dist = np.median(distances)
+            # radius = avg_dist
+            # ply = o3d.geometry.TriangleMesh.create_from_point_cloud_ball_pivoting(pcd, o3d.utility.DoubleVector([radius, radius * 5, radius * 10, radius * 15]))
+            
+            # origin = o3d.geometry.TriangleMesh.create_coordinate_frame(size=1)
+            # o3d.visualization.draw_geometries([pcd, scaled_mesh, origin])
+            # continue  
+            # 
+            scene = o3d.t.geometry.RaycastingScene()
+            mesh = o3d.t.geometry.TriangleMesh.from_legacy(scaled_mesh)
+            _ = scene.add_triangles(mesh)  # we do not need the geometry ID for mesh
+
+            nans = 0
+            problems = 0
+            num_samples = 100
+            max_sdf = 0.02
+            max_saved_sdf = 0
+            samples = 1
+            output_file.pixels = []
+            visualize_dict = {}
+            fornt_bbox_z = input_file.dz  # + 0.05
+            back_bbox_z = input_file.dz2  # - 0.1
+            print(len(input_file.pixels))
+            count_insiders = 0
+            count_outsiders = 0
+            count_totals = 0
+            pcd_points = []
+            for key, value in input_file.pixels.items():
+                unique = np.unique(value[value!=0])
+                if not unique.any():
+                    continue
+                x, y = key
+                key = f"{x}, {y}"
+                visualize_dict[key] = []
+
+                first_surface = unique[0]
+                rd = first_surface - fornt_bbox_z
+                # sprawdzamy czy liczba przecięć jest parzysta
+                if unique.any() and len(unique)%2 == 0:
+                    linspace_sampling(rd, fornt_bbox_z, back_bbox_z, num_samples, unique, visualize_dict, input_file, x, y, scene, pcd_points)
+                elif unique.any() and len(unique) == 1:
+                    halo_sampling(rd, fornt_bbox_z, first_surface, num_samples, unique, visualize_dict, input_file, x, y, scene, pcd_points)
+                else:
+                    output_file.pixels.append(np.array([np.nan]))
+                    visualize_dict[key].append([np.nan])
+            
+            # pcd_points_array = np.row_stack(pcd_points)
+
+            # pcd = o3d.geometry.PointCloud()  # create point cloud object
+            # pcd.points = o3d.utility.Vector3dVector(pcd_points_array)  # set pcd_np as the point cloud points
+            # origin = o3d.geometry.TriangleMesh.create_coordinate_frame(size=0.1)
+            # o3d.visualization.draw_geometries([pcd, scaled_mesh, origin])
+
+            output_file.save(visualize_dict)
+            print("Total:", len(visualize_dict))
+            print("Max saved sdf:", max_saved_sdf)
+
+            print("\nNans:", nans)
+            print("Total:", samples)
+            print("Ratio:", format(nans/samples, ".00%"))
+            print("PROBLEMS", problems)
+            print("Samples", samples)
+            print("--------------------------------------")

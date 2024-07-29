@@ -135,57 +135,41 @@ def linspace_sampling(rd, fornt_bbox_z, back_bbox_z, num_samples, unique, visual
 
 if __name__ == '__main__':
     train_new4_bottle = [
-    "examples/new_exp_1/data/training_data/bottle/10f709cecfbb8d59c2536abb1e8e5eab_30_a25_view4.json",
-    "examples/new_exp_1/data/training_data/bottle/10f709cecfbb8d59c2536abb1e8e5eab_30_a25_view9.json",
-    "examples/new_exp_1/data/training_data/bottle/13d991326c6e8b14fce33f1a52ee07f2_30_a25_view4.json",
-    "examples/new_exp_1/data/training_data/bottle/13d991326c6e8b14fce33f1a52ee07f2_30_a25_view9.json",
-    "examples/new_exp_1/data/training_data/bottle/109d55a137c042f5760315ac3bf2c13e_30_a25_view4.json",
-    "examples/new_exp_1/data/training_data/bottle/109d55a137c042f5760315ac3bf2c13e_30_a25_view9.json",
-    "examples/new_exp_1/data/training_data/bottle/1349b2169a97a0ff54e1b6f41fdd78a_30_a25_view4.json",
-    "examples/new_exp_1/data/training_data/bottle/1349b2169a97a0ff54e1b6f41fdd78a_30_a25_view9.json",
-    "examples/new_exp_1/data/training_data/bowl/1b4d7803a3298f8477bdcb8816a3fac9_30_a25_view4.json",
-    "examples/new_exp_1/data/training_data/bowl/1b4d7803a3298f8477bdcb8816a3fac9_30_a25_view9.json",
-    "examples/new_exp_1/data/training_data/bowl/2c1df84ec01cea4e525b133235812833_30_a25_view4.json",
-    "examples/new_exp_1/data/training_data/bowl/2c1df84ec01cea4e525b133235812833_30_a25_view9.json",
-    "examples/new_exp_1/data/training_data/bowl/12ddb18397a816c8948bef6886fb4ac_30_a25_view4.json",
-    "examples/new_exp_1/data/training_data/bowl/12ddb18397a816c8948bef6886fb4ac_30_a25_view9.json",
-    "examples/new_exp_1/data/training_data/bowl/292d2dda9923752f3e275dc4ab785b9f_30_a25_view4.json",
-    "examples/new_exp_1/data/training_data/bowl/292d2dda9923752f3e275dc4ab785b9f_30_a25_view9.json",
-    "examples/new_exp_1/data/training_data/laptop/1bb2e873cfbef364cef0dab711014aa8_30_a25_view4.json",
-    "examples/new_exp_1/data/training_data/laptop/1bb2e873cfbef364cef0dab711014aa8_30_a25_view9.json",
-    "examples/new_exp_1/data/training_data/laptop/1f507b26c31ae69be42930af58a36dce_30_a25_view4.json",
-    "examples/new_exp_1/data/training_data/laptop/1f507b26c31ae69be42930af58a36dce_30_a25_view9.json",
-    "examples/new_exp_1/data/training_data/laptop/2c61f0ba3236fe356dae27c417fa89b_30_a25_view4.json",
-    "examples/new_exp_1/data/training_data/laptop/2c61f0ba3236fe356dae27c417fa89b_30_a25_view9.json",
-    "examples/new_exp_1/data/training_data/laptop/16c49793f432cd4b33e4e0fe8cce118e_30_a25_view4.json",
-    "examples/new_exp_1/data/training_data/laptop/16c49793f432cd4b33e4e0fe8cce118e_30_a25_view9.json",
-    "examples/new_exp_1/data/training_data/mug/1a97f3c83016abca21d0de04f408950f_30_a25_view4.json",
-    "examples/new_exp_1/data/training_data/mug/1a97f3c83016abca21d0de04f408950f_30_a25_view9.json",
-    "examples/new_exp_1/data/training_data/mug/10f6e09036350e92b3f21f1137c3c347_30_a25_view4.json",
-    "examples/new_exp_1/data/training_data/mug/10f6e09036350e92b3f21f1137c3c347_30_a25_view9.json",
-    "examples/new_exp_1/data/training_data/mug/15bd6225c209a8e3654b0ce7754570c8_30_a25_view4.json",
-    "examples/new_exp_1/data/training_data/mug/15bd6225c209a8e3654b0ce7754570c8_30_a25_view9.json",
-    "examples/new_exp_1/data/training_data/mug/128ecbc10df5b05d96eaf1340564a4de_30_a25_view4.json",
-    "examples/new_exp_1/data/training_data/mug/128ecbc10df5b05d96eaf1340564a4de_30_a25_view9.json",
-    "examples/new_exp_1/data/training_data/can/2eeefdfc9b70b89eeb153e9a37e99fa5_30_a25_view4.json",
-    "examples/new_exp_1/data/training_data/can/2eeefdfc9b70b89eeb153e9a37e99fa5_30_a25_view9.json",
-    "examples/new_exp_1/data/training_data/can/3a9041d7aa0b4b9ad9802f6365035049_30_a25_view4.json",
-    "examples/new_exp_1/data/training_data/can/3a9041d7aa0b4b9ad9802f6365035049_30_a25_view9.json",
-    "examples/new_exp_1/data/training_data/can/3c8af6b0aeaf13c2abf4b6b757f4f768_30_a25_view4.json",
-    "examples/new_exp_1/data/training_data/can/3c8af6b0aeaf13c2abf4b6b757f4f768_30_a25_view9.json",
-    "examples/new_exp_1/data/training_data/can/3fd196c22459cc66c8687ff9b0b4e4ac_30_a25_view4.json",
-    "examples/new_exp_1/data/training_data/can/3fd196c22459cc66c8687ff9b0b4e4ac_30_a25_view9.json",
-    "examples/new_exp_1/data/training_data/jar/1d7868b4ad0913bf9f6b966b784c8347_30_a25_view4.json",
-    "examples/new_exp_1/data/training_data/jar/1d7868b4ad0913bf9f6b966b784c8347_30_a25_view9.json",
-    "examples/new_exp_1/data/training_data/jar/1dde51480f0c5474a38859fd71bee28c_30_a25_view4.json",
-    "examples/new_exp_1/data/training_data/jar/1dde51480f0c5474a38859fd71bee28c_30_a25_view9.json",
-    "examples/new_exp_1/data/training_data/jar/146f6702601f9c5d8bb41b82b15c6ac_30_a25_view4.json",
-    "examples/new_exp_1/data/training_data/jar/146f6702601f9c5d8bb41b82b15c6ac_30_a25_view9.json",
-    "examples/new_exp_1/data/training_data/jar/151a80ff1ad2fe11c8c4893204f16cf_30_a25_view4.json",
-    "examples/new_exp_1/data/training_data/jar/151a80ff1ad2fe11c8c4893204f16cf_30_a25_view9.json",
+    "examples/new_exp_2/data/training_data/bottle/10f709cecfbb8d59c2536abb1e8e5eab_5_a25_view4.json",
+    "examples/new_exp_2/data/training_data/bottle/10f709cecfbb8d59c2536abb1e8e5eab_5_a25_view9.json",
+    "examples/new_exp_2/data/training_data/bottle/13d991326c6e8b14fce33f1a52ee07f2_5_a25_view4.json",
+    "examples/new_exp_2/data/training_data/bottle/13d991326c6e8b14fce33f1a52ee07f2_5_a25_view9.json",
+    "examples/new_exp_2/data/training_data/bottle/109d55a137c042f5760315ac3bf2c13e_5_a25_view4.json",
+    "examples/new_exp_2/data/training_data/bottle/109d55a137c042f5760315ac3bf2c13e_5_a25_view9.json",
+    "examples/new_exp_2/data/training_data/bottle/1349b2169a97a0ff54e1b6f41fdd78a_5_a25_view4.json",
+    "examples/new_exp_2/data/training_data/bottle/1349b2169a97a0ff54e1b6f41fdd78a_5_a25_view9.json",
+    "examples/new_exp_2/data/training_data/bowl/1b4d7803a3298f8477bdcb8816a3fac9_5_a25_view4.json",
+    "examples/new_exp_2/data/training_data/bowl/1b4d7803a3298f8477bdcb8816a3fac9_5_a25_view9.json",
+    "examples/new_exp_2/data/training_data/bowl/2c1df84ec01cea4e525b133235812833_5_a25_view4.json",
+    "examples/new_exp_2/data/training_data/bowl/2c1df84ec01cea4e525b133235812833_5_a25_view9.json",
+    "examples/new_exp_2/data/training_data/bowl/12ddb18397a816c8948bef6886fb4ac_5_a25_view4.json",
+    "examples/new_exp_2/data/training_data/bowl/12ddb18397a816c8948bef6886fb4ac_5_a25_view9.json",
+    "examples/new_exp_2/data/training_data/bowl/292d2dda9923752f3e275dc4ab785b9f_5_a25_view4.json",
+    "examples/new_exp_2/data/training_data/bowl/292d2dda9923752f3e275dc4ab785b9f_5_a25_view9.json",
+    "examples/new_exp_2/data/training_data/laptop/1bb2e873cfbef364cef0dab711014aa8_5_a25_view4.json",
+    "examples/new_exp_2/data/training_data/laptop/1bb2e873cfbef364cef0dab711014aa8_5_a25_view9.json",
+    "examples/new_exp_2/data/training_data/laptop/1f507b26c31ae69be42930af58a36dce_5_a25_view4.json",
+    "examples/new_exp_2/data/training_data/laptop/1f507b26c31ae69be42930af58a36dce_5_a25_view9.json",
+    "examples/new_exp_2/data/training_data/laptop/2c61f0ba3236fe356dae27c417fa89b_5_a25_view4.json",
+    "examples/new_exp_2/data/training_data/laptop/2c61f0ba3236fe356dae27c417fa89b_5_a25_view9.json",
+    "examples/new_exp_2/data/training_data/laptop/16c49793f432cd4b33e4e0fe8cce118e_5_a25_view4.json",
+    "examples/new_exp_2/data/training_data/laptop/16c49793f432cd4b33e4e0fe8cce118e_5_a25_view9.json",
+    "examples/new_exp_2/data/training_data/mug/1eaf8db2dd2b710c7d5b1b70ae595e60_5_a25_view4.json",
+    "examples/new_exp_2/data/training_data/mug/1eaf8db2dd2b710c7d5b1b70ae595e60_5_a25_view9.json",
+    "examples/new_exp_2/data/training_data/mug/10f6e09036350e92b3f21f1137c3c347_5_a25_view4.json",
+    "examples/new_exp_2/data/training_data/mug/10f6e09036350e92b3f21f1137c3c347_5_a25_view9.json",
+    "examples/new_exp_2/data/training_data/mug/15bd6225c209a8e3654b0ce7754570c8_5_a25_view4.json",
+    "examples/new_exp_2/data/training_data/mug/15bd6225c209a8e3654b0ce7754570c8_5_a25_view9.json",
+    "examples/new_exp_2/data/training_data/mug/141f1db25095b16dcfb3760e4293e310_5_a25_view4.json",
+    "examples/new_exp_2/data/training_data/mug/141f1db25095b16dcfb3760e4293e310_5_a25_view9.json"
 ]
-    experiment_name = 'new_exp_1'
-    categories = ['laptop', 'bottle', 'bowl', 'laptop', 'mug', 'can']
+    experiment_name = 'new_exp_2'
+    categories = ['bottle', 'bowl', 'mug']
 
     with open(f'examples/{experiment_name}/data/dataset_config.json', 'r') as json_file:
         config = json.load(json_file)
@@ -226,25 +210,23 @@ if __name__ == '__main__':
             scaled_mesh = rotate(scaled_mesh, np.array([-135, 0, 0]))
             scaled_mesh = translate(scaled_mesh, [0, 0, 1.5])
 
-            pcd = generate_pcd(input_file)
-            points = np.asarray(pcd.points)
-            print('pcd', np.mean(points, axis=0))
+            # pcd = generate_pcd(input_file)
+            # points = np.asarray(pcd.points)
+            # print('pcd', np.mean(points, axis=0))
 
-            pcd_mean = np.mean(points, axis=0)
-            print('pcd', pcd_mean)
-            pcd.estimate_normals()
+            # pcd_mean = np.mean(points, axis=0)
+            # print('pcd', pcd_mean)
+            # pcd.estimate_normals()
             
-            distances = pcd.compute_nearest_neighbor_distance()
-            avg_dist = np.median(distances)
-            radius = avg_dist
-            ply = o3d.geometry.TriangleMesh.create_from_point_cloud_ball_pivoting(pcd, o3d.utility.DoubleVector([radius, radius * 5, radius * 10, radius * 15]))
+            # distances = pcd.compute_nearest_neighbor_distance()
+            # avg_dist = np.median(distances)
+            # radius = avg_dist
+            # ply = o3d.geometry.TriangleMesh.create_from_point_cloud_ball_pivoting(pcd, o3d.utility.DoubleVector([radius, radius * 5, radius * 10, radius * 15]))
             
-            origin = o3d.geometry.TriangleMesh.create_coordinate_frame(size=1)
-            o3d.visualization.draw_geometries([pcd, scaled_mesh, origin])
-            continue
-            # examples/new_exp_1/data/training_data/mug/128ecbc10df5b05d96eaf1340564a4de_30_a25_view4.json
-            # examples/new_exp_1/data/training_data/mug/128ecbc10df5b05d96eaf1340564a4de_30_a25_view9.json
-            # examples/new_exp_1/data/training_data/mug/1a97f3c83016abca21d0de04f408950f_30_a25_view4.json
+            # origin = o3d.geometry.TriangleMesh.create_coordinate_frame(size=1)
+            # o3d.visualization.draw_geometries([pcd, scaled_mesh, origin])
+            # continue
+
             scene = o3d.t.geometry.RaycastingScene()
             # mesh = o3d.t.geometry.TriangleMesh.from_legacy(ply)
             mesh = o3d.t.geometry.TriangleMesh.from_legacy(scaled_mesh)
