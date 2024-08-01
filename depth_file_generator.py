@@ -111,9 +111,9 @@ def create_directory(directory):
         print(f"Directory '{directory}' already exists.")
 
 if __name__ == '__main__':
-    categories = ['bottle', 'bowl', 'laptop', 'mug', 'can', 'jar']
+    categories = ['mug']  # , 'bowl', 'laptop', 'bottle', 'can', 'jar']
     random_rotation = False
-    experiment_name = 'new_exp_2'
+    experiment_name = 'new_exp_4'
 
     for category in categories:
         names = os.listdir(f'ShapeNetCore/{category}')
@@ -130,6 +130,8 @@ if __name__ == '__main__':
         for name in names:
             if name in generated_files:
                 print("File was processed earlier")
+                continue
+            if not name.startswith("10f6"):
                 continue
             SOURCE_PATH = os.path.join(f'ShapeNetCore/{category}', name, 'models/model_normalized.obj')
             DESTINATION_PATH = f'examples/{experiment_name}/data/{category}'
@@ -167,7 +169,7 @@ if __name__ == '__main__':
             else:
                 random_value = 0
 
-            step = 5
+            step = 2
 
             for i in range(10):
                 translations_and_rotations.append(np.array([0.,0.,0.,0 ,0,i*step + random_value]))

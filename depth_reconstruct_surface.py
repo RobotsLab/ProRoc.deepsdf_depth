@@ -231,15 +231,15 @@ if __name__ == '__main__':
     vis = o3d.visualization.Visualizer()
     k = 150
     rejection_angle = 25
-    categories = ['mug', 'bottle','bowl', 'laptop']#, 'can', 'jar']
+    categories = ['mug', 'bottle', 'bowl']
     for category in categories:
         # c:\Users\micha\OneDrive\Pulpit\DeepSDF\examples\new_exp_1\Reconstructions\600\Meshes\dataset_YCB_test\test_new_exp1_bottle
-        results_path = f'examples/new_exp_1/Reconstructions/600/Meshes/dataset_YCB_test/test_new_exp1_{category}'
+        results_path = f'examples/new_exp_4/Reconstructions/600/Meshes/dataset_YCB_test/new_exp_4_{category}'
         names_txt = [name for name in os.listdir(results_path) if name.endswith('.npz')]
         for name in names_txt:
             print(name)
-            SOURCE_PATH = f"data_YCB/SdfSamples/dataset_YCB_train/train_new_exp1_{category}/{name.replace('_k150_inp_test.npz', '.json')}"
-            TEST_QUERY_PATH = f"data_YCB/SdfSamples/dataset_YCB_test/test_new_exp1_{category}/{name.replace('.npz', '_query.json')}" #_k150_inp_train.json'
+            SOURCE_PATH = f"data_YCB/SdfSamples/dataset_YCB_train/train_new_exp_4_{category}/{name.replace('_k150_inp_test.npz', '.json')}"
+            TEST_QUERY_PATH = f"data_YCB/SdfSamples/dataset_YCB_test/new_exp_4_{category}/{name.replace('.npz', '_query.json')}" #_k150_inp_train.json'
             RESULTS_PATH = os.path.join(results_path, name)
             print(RESULTS_PATH.split('/')[-1])
             npz = load_querry_points(RESULTS_PATH)
@@ -340,7 +340,7 @@ if __name__ == '__main__':
             print(1, verts_th.shape[0], faces_th.shape)
             print(2, np.asarray(mesh.vertices).shape[0], np.asarray(mesh.triangles).shape[0])
 
-            # o3d.io.write_triangle_mesh(TEST_QUERY_PATH.replace('_query.json', '_mesh.ply'), mesh)
+            o3d.io.write_triangle_mesh(TEST_QUERY_PATH.replace('_query.json', '_mesh.ply'), mesh)
             o3d.io.write_point_cloud(TEST_QUERY_PATH.replace('.json', '_1000.pcd'), orginal_pcd)
             o3d.io.write_point_cloud(TEST_QUERY_PATH.replace('_query.json', 'th_neg00003_pos00002_1000.pcd'), pcd)
             o3d.io.write_point_cloud(TEST_QUERY_PATH.replace('_query.json', 'mc_1000.pcd'), pcd)

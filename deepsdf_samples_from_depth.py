@@ -7,138 +7,13 @@ import json
 import numpy as np
 import os
 
-# from depth.utils import *
+from depth.utils import *
 from depth.camera import Camera
-from depth_image_generator import File as DepthFile
-# from sklearn.preprocessing import StandardScaler
+from depth_image_generator import DepthImageFile
 
-from depth_file_generator import File as ViewsFile
-from depth_image_generator import load_generator_file, translate, scale, rotate
+from depth_file_generator import ViewFile
+from depth_file_generator import translate, scale, rotate
 
-class Camera():
-    def __init__(self, Fx, Fy, Cx, Cy, width, height, intrinsic_matrix):
-
-        self.Fx = Fx
-        self.Fy = Fy
-        self.Cx = Cx
-        self.Cy = Cy
-        self.width = width
-        self.height = height
-        self.intrinsic_matrix = intrinsic_matrix
-        self.extrinsic_matrix = np.eye(4)
-
-    def translate(self, tx, ty, tz):
-        self.extrinsic_matrix[:3, 3] = [tx, ty, tz]
-        # print('Extrinsic matrix:\n',self.extrinsic_matrix)
-
-    def rotate(self, roll, pitch, yaw):
-
-        rotation_x = np.array([[1, 0, 0],
-                            [0, np.cos(roll), -np.sin(roll)],
-                            [0, np.sin(roll), np.cos(roll)]])
-
-        rotation_y = np.array([[np.cos(pitch), 0, np.sin(pitch)],
-                            [0, 1, 0],
-                            [-np.sin(pitch), 0, np.cos(pitch)]])
-
-        rotation_z = np.array([[np.cos(yaw), -np.sin(yaw), 0],
-                            [np.sin(yaw), np.cos(yaw), 0],
-                            [0, 0, 1]])
-
-        # Combine rotation matrices
-        rotation_matrix = np.dot(np.dot(rotation_z, rotation_y), rotation_x)
-
-        self.extrinsic_matrix[:3, :3] = rotation_matrix
-
-    def raycasting(self):
-        return o3d.t.geometry.RaycastingScene.create_rays_pinhole(
-            intrinsic_matrix=self.intrinsic_matrix,
-            extrinsic_matrix=self.extrinsic_matrix,
-            width_px=self.width,
-            height_px=self.height
-        )
-
-class ViewsFile():
-    def __init__(self, source_path, destination_dir=''):
-        self.source_path = source_path
-        self.destination_dir = destination_dir 
-        self.name = self.get_name_()
-        self.scale = 0
-        self.s_o_transformation = np.zeros(6)
-        self.o_c_transformation = np.zeros(6)
-        self.frames = []
-
-        if destination_dir:
-            self.version = self.get_version_()
-
-    def get_name_(self):
-        head = os.path.split(self.source_path)[0]
-        return head.split('/')[-2]
-    
-    def get_version_(self):
-        dir_files = os.listdir(self.destination_dir)
-        file_number = len([x for x in dir_files if x.startswith(self.name) and x.endswith('.txt')]) + 1
-        return file_number
-    
-    def save(self):
-        with open(os.path.join(self.destination_dir, self.name + '.txt'), 'w') as f:
-            f.write(f'{self.scale}\n')
-            f.write(f"{' '.join(map(str, self.s_o_transformation))}\n")
-            f.write(f"{' '.join(map(str, self.o_c_transformation))}\n")
-            for frame in self.frames:
-                f.write(f"{' '.join(map(str, frame))}\n")
-        print(f"Saved: {os.path.join(self.destination_dir, self.name + '.txt')}")
-
-class DepthFile():
-    def __init__(self, source_path, destination_dir):
-        self.source_path = source_path
-        self.destination_dir = destination_dir 
-        self.name = self.get_name_()
-        self.version = 0  # self.get_version_()
-        self.o_c_transformation = np.zeros(6)
-        self.pixels = []
-        self.ds = 0
-
-    def get_name_(self):
-        tail = os.path.split(self.source_path)[1]
-        return tail.split('.')[0]
-    
-    def get_version_(self):
-        dir_files = os.listdir(self.destination_dir)
-        file_number = len([x for x in dir_files if x.startswith(self.name) and x.endswith('.txt')]) + 1
-        return file_number
-    
-    def get_camera_parameters(self, f, cx, cy):
-        self.f = f
-        self.cx = cx
-        self.cy = cy
-
-    def get_image_resolution(self, Ndx, Ndy):
-        self.Ndx = Ndx
-        self.Ndy = Ndy
-
-    def get_outliar_factor(self, ds):
-        self.ds = ds
-
-    def get_bounding_box_coords(self, nx, ny, z):
-        self.nx = nx
-        self.ny = ny
-        self.z = z
-
-    def get_bounding_box_size(self, ndx, ndy, dz, dz2):
-        self.ndx = ndx
-        self.ndy = ndy
-        self.dz = dz
-        self.dz2 = dz2
-
-    def save(self):
-        with open(os.path.join(self.destination_dir, self.name + '_inp' +'.txt'), 'w') as f:
-            for pixel in self.pixels:
-                f.write(f"{' '.join(map(str, pixel))}\n")
-        print("Saved:", os.path.join(self.destination_dir, self.name + '_inp' +'.txt'))
-                # print(pixel)
-                # for p in pixel:
-                    # print(p)
 
 class PointsFromDepth:
     def __init__(self, data_file, pixels) -> None:
@@ -197,10 +72,9 @@ def load_depth_file(input_file):
 def generate_input_pcd(input_file):
     visible_depth_points = []
 
-    for i, pixel in enumerate(input_file.pixels):
-        unique = np.unique(pixel[pixel!=0])
-        x = (i % input_file.ndx) + input_file.nx
-        y = (i // input_file.ndx) + input_file.ny
+    for key, values in input_file.pixels.items():
+        unique = np.unique(values[values!=0])
+        x, y = key
         if unique.any() and len(unique)%2 == 0:
             z = unique[0]
             visible_depth_points.append(np.array([x, y, z]))
@@ -220,34 +94,93 @@ def generate_input_pcd(input_file):
 
     return pcd
 
+def translate_pcd(pcd, translation):
+    pcd_points = np.asarray(pcd.points)
+    pcd_points += translation
+    pcd.points = o3d.utility.Vector3dVector(pcd_points)
+    return pcd
+
+def rotate_pcd(pcd, rotation):
+    R = pcd.get_rotation_matrix_from_xyz(np.radians(rotation))
+    pcd.rotate(R, center=(0, 0, 0))
+    return pcd
+
+def scale_pcd(pcd, scale_factor):
+
+    def object_translation(points, pos_z=False):
+        points_mean = np.mean(points, axis=0)
+        points -= points_mean
+
+        if pos_z:
+            min_z = np.min(points[:, 2])
+        else:
+            min_z = 0
+
+        translation_vec = points_mean + np.array([0., 0., min_z])
+        return translation_vec
+    
+    pcd_points = np.copy(np.asarray(pcd.points))    
+    max_idx = 0
+    max_dist = 0
+    for i in range(3):
+        input_max_dist = np.max(pcd_points[:, i]) - np.min(pcd_points[:, i])
+        max_dist = max(max_dist, input_max_dist)
+        if max_dist == input_max_dist:
+            max_idx = i
+
+    max_z_dist = np.max(pcd_points[:, max_idx]) - np.min(pcd_points[:, max_idx])
+    pcd_points /= max_z_dist
+    
+    pcd_points *= scale_factor
+    output_z_dist = np.max(pcd_points[:, max_idx]) - np.min(pcd_points[:, max_idx])
+    pcd.points = o3d.utility.Vector3dVector(pcd_points)
+    scaled_pcd = translate(pcd, object_translation(pcd_points, True))
+
+    real_scale_factor = output_z_dist / max_dist
+    
+    print(f"Max dist catured along axis: {max_idx}")
+
+    return scaled_pcd, real_scale_factor
+
 if __name__ == '__main__':
     vis = o3d.visualization.Visualizer()
     k = 150
     rejection_angle = 25
-    categories = ['mug', 'bowl', 'laptop', 'bottle']
+    categories = ['mug', 'bottle', 'bowl']
+    experiment_name = 'new_exp_3'
+    with open(f'examples/{experiment_name}/data/dataset_config.json', 'r') as json_file:
+        config = json.load(json_file)
+    
     for category in categories:
-        results_path = f'data_YCB/SdfSamples/dataset_YCB_test/{category}_pos_sdf'
-        names_json = [name for name in os.listdir(results_path) if name.endswith('test.json')]
-        for name in names_json:
-            # print(name)
-            # SOURCE_PATH = f"dataset_YCB_train/DepthDeepSDF/files/{category}/{name.replace('_k150_inp_test.npz', '.txt')}"
-            # TEST_QUERY_PATH = f"data_YCB/SdfSamples/dataset_YCB_test/test_new5_{category}/{name.replace('.npz', '_query.json')}" #_k150_inp_train.json'
-            # RESULTS_PATH = os.path.join(results_path, name)
-            # print(RESULTS_PATH.split('/')[-1])
-            # npz = load_querry_points(RESULTS_PATH)
+        generated_files = [gf.split('.')[0] for gf in os.listdir(f'examples/{experiment_name}/data/test_data/{category}') if gf.endswith('.json')]
+        names_json = [name for name in os.listdir(f'examples/{experiment_name}/data/{category}') if name.endswith(f"_{config['rotation_step']}.json")]
 
-            # SOURCE_PATH = f'dataset_YCB_train/DepthDeepSDF/files/untitled_1_{b}_a{rejection_angle}.txt'
-            # INPUT_PATH = f'dataset_YCB_train/DepthDeepSDF/files/untitled_1_{b}_a{rejection_angle}_k{k}_inp.json'
-            VIEW_PATH = f"data_YCB/SdfSamples/dataset_YCB_test/{category}_pos_sdf/{name.split('_')[0]}.txt"
-            SOURCE_PATH = f"data_YCB/SdfSamples/dataset_YCB_test/{category}_pos_sdf/{name.replace('_k150_inp_test.json', '.txt')}"
-            INPUT_PATH = f"data_YCB/SdfSamples/dataset_YCB_test/{category}_pos_sdf/{name}"
+        for current_iteration, name_json in enumerate(generated_files):
+            name = name_json.split('_')[0]
+            view = int(name_json.split('_')[3][-1])
+            VIEW_PATH = os.path.join(f'examples/{experiment_name}/data/{category}', name_json.split(f'_a25_view{view}_k150_inp_test')[0]+'.json')
+            SOURCE_PATH = os.path.join(f'examples/{experiment_name}/data/training_data/{category}', name_json.split('_k150_inp_test')[0]+'.json')
+            INPUT_PATH = os.path.join(f'examples/{experiment_name}/data/test_data/{category}', name_json+'.json')
+            MESH_PATH =  os.path.join(f'examples/{experiment_name}/data/deepsdf/{category}', name, 'models/model_normalized.obj')
 
-            view_file = ViewsFile(VIEW_PATH)
-            load_generator_file(view_file)
+            view_file = ViewFile(name)
+            view_file.load(VIEW_PATH)
 
-            data_file = DepthFile(SOURCE_PATH, '')
-            load_depth_file(data_file)
+            data_file = DepthImageFile(name)
+            data_file.load(SOURCE_PATH)
             
+            input_mesh = load_file(MESH_PATH)
+            # input_mesh = rotate(input_mesh, np.array([90, 0, 0]))
+            # centered_mesh = translate(input_mesh, view_file.s_o_transformation[:3])
+            # scaled_mesh, _ = scale(centered_mesh, view_file.scale)
+
+            frame = view_file.frames[view]
+            # scaled_mesh = translate(input_mesh, frame[:3])
+            # scaled_mesh = rotate(scaled_mesh, frame[3:])
+            # scaled_mesh = rotate(scaled_mesh, [0,0,90])
+            # scaled_mesh = rotate(scaled_mesh, np.array([-135, 0, 0]))
+            # scaled_mesh = translate(scaled_mesh, [0, 0, 1.5])
+
             depth_pcd = generate_input_pcd(data_file)
 
             input_file = []
@@ -274,20 +207,20 @@ if __name__ == '__main__':
             object_pcd = object_points.to_point_cloud()
             points = np.asarray(object_pcd.points)
             center = np.mean(points, axis=0)
-            points -= center
-            R = object_pcd.get_rotation_matrix_from_xyz((np.pi / 4, 0, 0))
-            object_pcd.rotate(R, center=(0, 0, 0))
+            # points -= center
+            # R = object_pcd.get_rotation_matrix_from_xyz((np.pi / 4, 0, 0))
+            # object_pcd.rotate(R, center=(0, 0, 0))
 
             max_distance = 0
             for point in points:
                 max_distance = max(max_distance, np.linalg.norm(point))
             
-            scale_factor = 1.03
-            scale_multiplier = max_distance * scale_factor
-            points /= scale_multiplier
+            # scale_factor = 1.03
+            # scale_multiplier = max_distance * scale_factor
+            # points /= scale_multiplier
             
             object_sdf_array = object_points.image[:, 3]
-            object_sdf_array /= scale_multiplier
+            # object_sdf_array /= scale_multiplier
 
             npz_result = np.column_stack((points, object_sdf_array))
             pos_data = npz_result[npz_result[:, 3] >= 0]
@@ -295,7 +228,6 @@ if __name__ == '__main__':
             print("POS DATA SHAPE, NEG DATA SHAPE: ", pos_data.shape, neg_data.shape)
 
             npz_data = {"pos": pos_data, "neg": neg_data}
-            # np.savez(f"{INPUT_PATH.replace('.json', '.npz')}", **npz_data)
 
             object_color_array = np.zeros((len(object_sdf_array), 3))
 
@@ -309,16 +241,42 @@ if __name__ == '__main__':
             # plt.show()
 
             print(min_sdf, max_sdf)
-            object_color_array[:, 2] = (1 - normalized_sdf_array) ** 2
+            # object_color_array[:, 2] = (1 - normalized_sdf_array) ** 2
             # object_color_array[normalized_sdf_array == 0, 1] = 1
+            object_color_array[:, 2] = object_sdf_array
+
             object_pcd.colors = o3d.utility.Vector3dVector(object_color_array)
 
             pcd_points_ndarray = np.concatenate((pos_data, neg_data), axis=0)
             pcd_colors_ndarray = np.concatenate((np.asarray(depth_pcd.colors), np.asarray(object_pcd.colors)), axis=0)
             pcd = o3d.geometry.PointCloud()  # create point cloud object
             pcd.points = o3d.utility.Vector3dVector(pcd_points_ndarray[:, :3])  # set pcd_np as the point cloud points
-            pcd.colors = o3d.utility.Vector3dVector(pcd_colors_ndarray)
+            pcd.colors = o3d.utility.Vector3dVector(object_color_array)
             origin = o3d.geometry.TriangleMesh.create_coordinate_frame(size=1)
+            pcd = translate_pcd(pcd, -np.array([0, 0, 1.5]))
+            pcd = rotate_pcd(pcd, np.array([135, 0, 0]))  # Inverse rotation
+            pcd = rotate_pcd(pcd, [0, 0, -90])  # Inverse rotation
+            pcd = rotate_pcd(pcd, -np.array(frame[3:]))  # Inverse rotation
+            pcd = translate_pcd(pcd, -np.array(frame[:3]))  # Inverse translation
+
+            # Extract the points (x, y, z) and sdf values from pcd
+            extracted_points = np.asarray(pcd.points)
+            extracted_sdf = np.asarray(pcd.colors)[:, 2]
+
+            # Combine the extracted points with the sdf values
+            combined_data = np.column_stack((extracted_points, extracted_sdf))
+            if np.array_equal(combined_data, pcd_points_ndarray):
+                print("array1 and array2 are equal and in the same order.")
+            else:
+                print("array1 and array2 are not equal or the order has changed.")
+            # Separate into positive and negative sdf arrays for saving
+            pos_data_extracted = combined_data[combined_data[:, 3] >= 0]
+            neg_data_extracted = combined_data[combined_data[:, 3] < 0]
+
+            npz_data_extracted = {"pos": pos_data_extracted, "neg": neg_data_extracted}
+
+            # Save the extracted data to a .npz file
+            np.savez(f"{os.path.join(f'examples/{experiment_name}/data/deepsdf/{category}', name_json)}.npz", **npz_data_extracted)
 
             # pcd_points_ndarray = np.concatenate((np.asarray(depth_pcd.points), np.asarray(object_pcd.points)), axis=0)
             # pcd_colors_ndarray = np.concatenate((np.asarray(depth_pcd.colors), np.asarray(object_pcd.colors)), axis=0)
@@ -330,10 +288,12 @@ if __name__ == '__main__':
             # vis.create_window()
 
             # vis.add_geometry(pcd)
+            # vis.add_geometry(depth_pcd)
+            # vis.add_geometry(input_mesh)
 
             # opt = vis.get_render_option()
 
-            # opt.background_color = np.asarray([0, 0, 0])
+            # opt.background_color = np.asarray([255, 255, 255])
 
             # vis.run()
 

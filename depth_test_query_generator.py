@@ -25,7 +25,7 @@ class QueryFile():
         self.source_path = source_path
         self.destination_dir = destination_dir 
         self.name = self.get_name_()
-        self.version = self.get_version_()
+        # self.version = self.get_version_()
         self.o_c_transformation = np.zeros(6)
         self.pixels = []
         self.ds = 0
@@ -132,41 +132,51 @@ def halo_sampling(rd, fornt_bbox_z, first_surface, num_samples, unique, visualiz
 
 if __name__ == '__main__':
     train_new4_bottle = [
-    "examples/new_exp_2/data/training_data/bottle/10f709cecfbb8d59c2536abb1e8e5eab_5_a25_view4.json",
-    "examples/new_exp_2/data/training_data/bottle/10f709cecfbb8d59c2536abb1e8e5eab_5_a25_view9.json",
-    "examples/new_exp_2/data/training_data/bottle/13d991326c6e8b14fce33f1a52ee07f2_5_a25_view4.json",
-    "examples/new_exp_2/data/training_data/bottle/13d991326c6e8b14fce33f1a52ee07f2_5_a25_view9.json",
-    "examples/new_exp_2/data/training_data/bottle/109d55a137c042f5760315ac3bf2c13e_5_a25_view4.json",
-    "examples/new_exp_2/data/training_data/bottle/109d55a137c042f5760315ac3bf2c13e_5_a25_view9.json",
-    "examples/new_exp_2/data/training_data/bottle/1349b2169a97a0ff54e1b6f41fdd78a_5_a25_view4.json",
-    "examples/new_exp_2/data/training_data/bottle/1349b2169a97a0ff54e1b6f41fdd78a_5_a25_view9.json",
-    "examples/new_exp_2/data/training_data/bowl/1b4d7803a3298f8477bdcb8816a3fac9_5_a25_view4.json",
-    "examples/new_exp_2/data/training_data/bowl/1b4d7803a3298f8477bdcb8816a3fac9_5_a25_view9.json",
-    "examples/new_exp_2/data/training_data/bowl/2c1df84ec01cea4e525b133235812833_5_a25_view4.json",
-    "examples/new_exp_2/data/training_data/bowl/2c1df84ec01cea4e525b133235812833_5_a25_view9.json",
-    "examples/new_exp_2/data/training_data/bowl/12ddb18397a816c8948bef6886fb4ac_5_a25_view4.json",
-    "examples/new_exp_2/data/training_data/bowl/12ddb18397a816c8948bef6886fb4ac_5_a25_view9.json",
-    "examples/new_exp_2/data/training_data/bowl/292d2dda9923752f3e275dc4ab785b9f_5_a25_view4.json",
-    "examples/new_exp_2/data/training_data/bowl/292d2dda9923752f3e275dc4ab785b9f_5_a25_view9.json",
-    "examples/new_exp_2/data/training_data/laptop/1bb2e873cfbef364cef0dab711014aa8_5_a25_view4.json",
-    "examples/new_exp_2/data/training_data/laptop/1bb2e873cfbef364cef0dab711014aa8_5_a25_view9.json",
-    "examples/new_exp_2/data/training_data/laptop/1f507b26c31ae69be42930af58a36dce_5_a25_view4.json",
-    "examples/new_exp_2/data/training_data/laptop/1f507b26c31ae69be42930af58a36dce_5_a25_view9.json",
-    "examples/new_exp_2/data/training_data/laptop/2c61f0ba3236fe356dae27c417fa89b_5_a25_view4.json",
-    "examples/new_exp_2/data/training_data/laptop/2c61f0ba3236fe356dae27c417fa89b_5_a25_view9.json",
-    "examples/new_exp_2/data/training_data/laptop/16c49793f432cd4b33e4e0fe8cce118e_5_a25_view4.json",
-    "examples/new_exp_2/data/training_data/laptop/16c49793f432cd4b33e4e0fe8cce118e_5_a25_view9.json",
-    "examples/new_exp_2/data/training_data/mug/1eaf8db2dd2b710c7d5b1b70ae595e60_5_a25_view4.json",
-    "examples/new_exp_2/data/training_data/mug/1eaf8db2dd2b710c7d5b1b70ae595e60_5_a25_view9.json",
-    "examples/new_exp_2/data/training_data/mug/10f6e09036350e92b3f21f1137c3c347_5_a25_view4.json",
-    "examples/new_exp_2/data/training_data/mug/10f6e09036350e92b3f21f1137c3c347_5_a25_view9.json",
-    "examples/new_exp_2/data/training_data/mug/15bd6225c209a8e3654b0ce7754570c8_5_a25_view4.json",
-    "examples/new_exp_2/data/training_data/mug/15bd6225c209a8e3654b0ce7754570c8_5_a25_view9.json",
-    "examples/new_exp_2/data/training_data/mug/141f1db25095b16dcfb3760e4293e310_5_a25_view4.json",
-    "examples/new_exp_2/data/training_data/mug/141f1db25095b16dcfb3760e4293e310_5_a25_view9.json"
+    # "examples/new_exp_3/data/training_data/bottle/10f709cecfbb8d59c2536abb1e8e5eab_5_a25_view4.json",
+    # "examples/new_exp_3/data/training_data/bottle/10f709cecfbb8d59c2536abb1e8e5eab_5_a25_view9.json",
+    # "examples/new_exp_3/data/training_data/bottle/13d991326c6e8b14fce33f1a52ee07f2_5_a25_view4.json",
+    # "examples/new_exp_3/data/training_data/bottle/13d991326c6e8b14fce33f1a52ee07f2_5_a25_view9.json",
+    # "examples/new_exp_3/data/training_data/bottle/109d55a137c042f5760315ac3bf2c13e_5_a25_view4.json",
+    # "examples/new_exp_3/data/training_data/bottle/109d55a137c042f5760315ac3bf2c13e_5_a25_view9.json",
+    # "examples/new_exp_3/data/training_data/bottle/1349b2169a97a0ff54e1b6f41fdd78a_5_a25_view4.json",
+    # "examples/new_exp_3/data/training_data/bottle/1349b2169a97a0ff54e1b6f41fdd78a_5_a25_view9.json",
+    # "examples/new_exp_3/data/training_data/bowl/1b4d7803a3298f8477bdcb8816a3fac9_5_a25_view4.json",
+    # "examples/new_exp_3/data/training_data/bowl/1b4d7803a3298f8477bdcb8816a3fac9_5_a25_view9.json",
+    # "examples/new_exp_3/data/training_data/bowl/2c1df84ec01cea4e525b133235812833_5_a25_view4.json",
+    # "examples/new_exp_3/data/training_data/bowl/2c1df84ec01cea4e525b133235812833_5_a25_view9.json",
+    # "examples/new_exp_3/data/training_data/bowl/12ddb18397a816c8948bef6886fb4ac_5_a25_view4.json",
+    # "examples/new_exp_3/data/training_data/bowl/12ddb18397a816c8948bef6886fb4ac_5_a25_view9.json",
+    # "examples/new_exp_3/data/training_data/bowl/292d2dda9923752f3e275dc4ab785b9f_5_a25_view4.json",
+    # "examples/new_exp_3/data/training_data/bowl/292d2dda9923752f3e275dc4ab785b9f_5_a25_view9.json",
+    # "examples/new_exp_3/data/training_data/laptop/1bb2e873cfbef364cef0dab711014aa8_5_a25_view4.json",
+    # "examples/new_exp_3/data/training_data/laptop/1bb2e873cfbef364cef0dab711014aa8_5_a25_view9.json",
+    # "examples/new_exp_3/data/training_data/laptop/1f507b26c31ae69be42930af58a36dce_5_a25_view4.json",
+    # "examples/new_exp_3/data/training_data/laptop/1f507b26c31ae69be42930af58a36dce_5_a25_view9.json",
+    # "examples/new_exp_3/data/training_data/laptop/2c61f0ba3236fe356dae27c417fa89b_5_a25_view4.json",
+    # "examples/new_exp_3/data/training_data/laptop/2c61f0ba3236fe356dae27c417fa89b_5_a25_view9.json",
+    # "examples/new_exp_3/data/training_data/laptop/16c49793f432cd4b33e4e0fe8cce118e_5_a25_view4.json",
+    # "examples/new_exp_3/data/training_data/laptop/16c49793f432cd4b33e4e0fe8cce118e_5_a25_view9.json",
+    # "examples/new_exp_3/data/training_data/mug/1eaf8db2dd2b710c7d5b1b70ae595e60_5_a25_view4.json",
+    # "examples/new_exp_3/data/training_data/mug/1eaf8db2dd2b710c7d5b1b70ae595e60_5_a25_view9.json",
+    # "examples/new_exp_3/data/training_data/mug/10f6e09036350e92b3f21f1137c3c347_5_a25_view4.json",
+    # "examples/new_exp_3/data/training_data/mug/10f6e09036350e92b3f21f1137c3c347_5_a25_view9.json",
+    # "examples/new_exp_3/data/training_data/mug/15bd6225c209a8e3654b0ce7754570c8_5_a25_view4.json",
+    # "examples/new_exp_3/data/training_data/mug/15bd6225c209a8e3654b0ce7754570c8_5_a25_view9.json",
+    # "examples/new_exp_3/data/training_data/mug/141f1db25095b16dcfb3760e4293e310_5_a25_view4.json",
+    # "examples/new_exp_3/data/training_data/mug/141f1db25095b16dcfb3760e4293e310_5_a25_view9.json"
+    "examples/new_exp_4/data/training_data/mug/10f6e09036350e92b3f21f1137c3c347_2_a25_view0.json",
+    "examples/new_exp_4/data/training_data/mug/10f6e09036350e92b3f21f1137c3c347_2_a25_view1.json",
+    "examples/new_exp_4/data/training_data/mug/10f6e09036350e92b3f21f1137c3c347_2_a25_view2.json",
+    "examples/new_exp_4/data/training_data/mug/10f6e09036350e92b3f21f1137c3c347_2_a25_view3.json",
+    "examples/new_exp_4/data/training_data/mug/10f6e09036350e92b3f21f1137c3c347_2_a25_view4.json",
+    "examples/new_exp_4/data/training_data/mug/10f6e09036350e92b3f21f1137c3c347_2_a25_view5.json",
+    "examples/new_exp_4/data/training_data/mug/10f6e09036350e92b3f21f1137c3c347_2_a25_view6.json",
+    "examples/new_exp_4/data/training_data/mug/10f6e09036350e92b3f21f1137c3c347_2_a25_view7.json",
+    "examples/new_exp_4/data/training_data/mug/10f6e09036350e92b3f21f1137c3c347_2_a25_view8.json",
+    "examples/new_exp_4/data/training_data/mug/10f6e09036350e92b3f21f1137c3c347_2_a25_view9.json",
 ]
-    experiment_name = 'new_exp_2'
-    categories = ['bottle', 'bowl', 'mug']
+    experiment_name = 'new_exp_4'
+    categories = ['mug']
 
     with open(f'examples/{experiment_name}/data/dataset_config.json', 'r') as json_file:
         config = json.load(json_file)
@@ -178,8 +188,8 @@ if __name__ == '__main__':
         saved_files = 0
         for name_json in names_json:
             view = int(name_json.split('view')[1])
-            if not view in [4, 9]:
-                continue
+            # if not view in [4, 9]:
+            #     continue
             object_name = name_json.split('_')[0]
 
             SOURCE_PATH = os.path.join(f'examples/{experiment_name}/data/training_data/{category}', name_json + '.json')

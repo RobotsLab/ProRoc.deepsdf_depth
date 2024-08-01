@@ -364,8 +364,8 @@ def stack_images(file, input_mesh, camera, view=0):
     return depth_image[file.ny:file.ny+file.ndy, file.nx:file.nx+file.ndx, :]
 
 if __name__ == '__main__':
-    categories = ['bottle', 'bowl', 'mug']
-    experiment_name = 'new_exp_2'
+    categories = ['mug']  # ['bottle', 'bowl', 'mug']
+    experiment_name = 'new_exp_4'
     with open(f'examples/{experiment_name}/data/dataset_config.json', 'r') as json_file:
         config = json.load(json_file)
     

@@ -267,8 +267,8 @@ if __name__ == '__main__':
         '15bd6225c209a8e3654b0ce7754570c8',
         '141f1db25095b16dcfb3760e4293e310'
     ]
-    categories = ['mug', 'bottle', 'bowl']
-    experiment_name = 'new_exp_3'
+    categories = ['mug']
+    experiment_name = 'new_exp_4'
     with open(f'examples/{experiment_name}/data/dataset_config.json', 'r') as json_file:
         config = json.load(json_file)
     

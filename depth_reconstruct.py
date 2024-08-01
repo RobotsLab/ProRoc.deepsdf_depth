@@ -257,7 +257,7 @@ if __name__ == "__main__":
                 data_sdf,
                 0.01,  # [emp_mean,emp_var],
                 1.,
-                num_samples=8000,
+                num_samples=30000,
                 lr=5e-3,
                 l2reg=True,
             )
