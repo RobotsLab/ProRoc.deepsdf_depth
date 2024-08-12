@@ -93,6 +93,27 @@ class DepthImageFile():
 
         print(f"FILE LOADED: {file_path}")
 
+    def visualize_as_point_cloud(self):
+        points = []
+        for (x, y), depth_values in self.pixels.items():
+            for z in depth_values:
+                if z > 0:  # Ignore points with zero depth
+                    X = (x - self.cx) * z / self.f
+                    Y = (y - self.cy) * z / self.f
+                    points.append([X, Y, z])
+        
+        if not points:
+            print("No valid points to display.")
+            return
+
+        points = np.array(points)
+        self.point_cloud = o3d.geometry.PointCloud()
+        self.point_cloud.points = o3d.utility.Vector3dVector(points)
+        
+        origin = o3d.geometry.TriangleMesh.create_coordinate_frame(size=0.1)
+        o3d.visualization.draw_geometries([self.point_cloud, origin])
+        # exit(777)
+
 def find_angle(v1, v2):
     c = np.dot(v1, v2)/(np.linalg.norm(v1)*np.linalg.norm(v2))
     angle = np.rad2deg(np.arccos(np.clip(c, -1, 1)))
@@ -393,7 +414,7 @@ if __name__ == '__main__':
             print("===================================================")
             print("SOURCE PATH", SOURCE_PATH)
             for view, frame in enumerate(view_file.frames):
-                if name + f"_{config['rotation_step']}_a{POWER_FACTOR}_view{view}" in generated_files:
+                if not name + f"_{config['rotation_step']}_a{POWER_FACTOR}_view{view}" in generated_files:
                     print("File was processed earlier")
                     continue
                 scaled_mesh = translate(scaled_mesh, frame[:3])
@@ -446,7 +467,14 @@ if __name__ == '__main__':
                 scaled_mesh = translate(scaled_mesh, -frame[:3])
                 scaled_mesh = rotate(scaled_mesh, -frame[3:])
                 print(depth_image.shape, type(depth_image))
-                depth_image_file.save(f'examples/{experiment_name}/data/training_data/{category}', config['rotation_step'], POWER_FACTOR, view)
+                depth_image_file.visualize_as_point_cloud()
+                file_name = f"{depth_image_file.name}_{config['rotation_step']}_a{POWER_FACTOR}_view{view}.json"
+                destination_path = f'examples/{experiment_name}/data/training_data/{category}'
+                file_path = os.path.join(destination_path, file_name)
+                depth_file_view = DepthImageFile(name)
+                depth_file_view.load(file_path)
+                depth_file_view.visualize_as_point_cloud()
+                # depth_image_file.save(f'examples/{experiment_name}/data/training_data/{category}', config['rotation_step'], POWER_FACTOR, view)
                 depth_image_file.pixels.clear()
 
             # w tym programie musi być liczenie ścianek na promieniu, jeżeli:

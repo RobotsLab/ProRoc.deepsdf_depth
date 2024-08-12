@@ -89,6 +89,30 @@ class PointsFromDepth:
         pcd.points = o3d.utility.Vector3dVector(self.points)  # set pcd_np as the point cloud points
 
         return pcd
+    
+    def visualize_as_point_cloud(self, pixels, additional=''):
+        points = []
+        for (x, y), depth_values in pixels.items():
+            for z in depth_values:
+                if z > 0:  # Ignore points with zero depth
+                    X = (x - self.cx) * z / self.f
+                    Y = (y - self.cy) * z / self.f
+                    points.append([X, Y, z])
+        
+        if not points:
+            print("No valid points to display.")
+            return
+
+        points = np.array(points)
+        self.point_cloud = o3d.geometry.PointCloud()
+        self.point_cloud.points = o3d.utility.Vector3dVector(points)
+
+        origin = o3d.geometry.TriangleMesh.create_coordinate_frame(size=0.1)
+        if additional:
+            o3d.visualization.draw_geometries([self.point_cloud, additional, origin])
+        else:
+            o3d.visualization.draw_geometries([self.point_cloud, origin])
+
 
 def load_querry_points(path):
     if path.endswith(".npz"):
@@ -121,9 +145,8 @@ def generate_input_pcd(input_file):
         unique = np.unique(value[value!=0])
         if not unique.any():
             continue
-        x, y = key
-        key = f"{x}, {y}"
-        if unique.any() and len(unique)%2 == 0:
+        else:
+            x, y = key
             z = unique[0]
             visible_depth_points.append(np.array([x, y, z]))
     depth_image = np.vstack(visible_depth_points)
@@ -229,25 +252,27 @@ def filter_point_cloud(pcd):
 
 if __name__ == '__main__':
     vis = o3d.visualization.Visualizer()
-    k = 150
+    k = 100
     rejection_angle = 25
     categories = ['mug', 'bottle', 'bowl']
     for category in categories:
         # c:\Users\micha\OneDrive\Pulpit\DeepSDF\examples\new_exp_1\Reconstructions\600\Meshes\dataset_YCB_test\test_new_exp1_bottle
-        results_path = f'examples/new_exp_4/Reconstructions/600/Meshes/dataset_YCB_test/new_exp_4_{category}'
+        results_path = f'examples/new_exp_5/Reconstructions/600/Meshes/dataset_YCB_test/new_exp_5_{category}'
         names_txt = [name for name in os.listdir(results_path) if name.endswith('.npz')]
         for name in names_txt:
             print(name)
-            SOURCE_PATH = f"data_YCB/SdfSamples/dataset_YCB_train/train_new_exp_4_{category}/{name.replace('_k150_inp_test.npz', '.json')}"
-            TEST_QUERY_PATH = f"data_YCB/SdfSamples/dataset_YCB_test/new_exp_4_{category}/{name.replace('.npz', '_query.json')}" #_k150_inp_train.json'
+            SOURCE_PATH = f"data_YCB/SdfSamples/dataset_YCB_train/train_new_exp_5_{category}/{name.replace(f'_k{k}_inp_test.npz', '.json')}"
+            TEST_QUERY_PATH = f"data_YCB/SdfSamples/dataset_YCB_test/new_exp_5_{category}/{name.replace('.npz', '_query.json')}" #_k150_inp_train.json'
             RESULTS_PATH = os.path.join(results_path, name)
             print(RESULTS_PATH.split('/')[-1])
             npz = load_querry_points(RESULTS_PATH)
             print("NPZ SHAPE:", npz.shape)
             data_file = DepthImageFile(name.split("_")[0])
             data_file.load(SOURCE_PATH)
-            # depth_pcd is point cloud that see camera            
-            depth_pcd = generate_input_pcd(data_file)
+            # depth_pcd is point cloud that see camera   
+            data_file.visualize_as_point_cloud()         
+            # depth_pcd = generate_input_pcd(data_file)
+            depth_pcd = data_file.point_cloud
 
             input_file = []
             with open(TEST_QUERY_PATH, 'r') as f:
@@ -257,28 +282,32 @@ if __name__ == '__main__':
             miss_match = 0
             object_image = []
             depth_image = []
+            visualize_dict = {}
             itr = 0
             halo = 0
             dupplicated_sdf = 0
             for key, value in input_file.items():
                 pixel = []
+                x, y = map(int, key.split(', '))
+                visualize_dict[(x, y)] = []
+
                 if len(value) == 1 and not np.any(np.isnan(value[0])):
                     halo += 1
 
                 duplicate_counter = 0
                 previous_sdf = 100
                 for i, row in enumerate(value):
-                    x, y = map(int, key.split(', '))
                     if np.any(np.isnan(row)):
                         break
                     elif np.float32(row[0]) == npz[itr][0] and np.float32(row[1]) == npz[itr][1]:
                         z = npz[itr][0] + npz[itr][1] + data_file.dz
                         sdf = npz[itr][2]
                         itr += 1
-                        # if sdf == previous_sdf:
-                        #     dupplicated_sdf += 1
-                        #     previous_sdf = sdf
-                        #     continue
+                        if sdf == previous_sdf:
+                            dupplicated_sdf += 1
+                            previous_sdf = sdf
+                            continue
+                        visualize_dict[(x, y)].append(z)
                         object_image.append(np.array([x, y, z, sdf]))
                         previous_sdf = sdf
                     else:
@@ -287,13 +316,15 @@ if __name__ == '__main__':
             print("MISS MATCH:", miss_match)
             print("HALO", halo)
             object_points = PointsFromDepth(data_file, object_image)
+            object_points.visualize_as_point_cloud(visualize_dict)
             print("object_points shape", object_points.image.shape)
             
             # critical_points = critical_points_point_cloud(object_points, h_begin=0.00002, h_end=-0.00003, min_thickness=0.00004)
 
             resolution = 100  # Adjust the resolution as needed
 
-            orginal_pcd = object_points.to_point_cloud()
+            # orginal_pcd = object_points.to_point_cloud()
+            orginal_pcd = object_points.point_cloud
             valid_points = np.column_stack((np.asarray(orginal_pcd.points), object_points.image[:, 3]))
             volume, spacing = create_volumetric_grid(valid_points, resolution)
             verts, faces, normals, values = apply_marching_cubes(volume, spacing)
@@ -332,21 +363,21 @@ if __name__ == '__main__':
             mesh.triangles = o3d.utility.Vector3iVector(faces_th)
             origin = o3d.geometry.TriangleMesh.create_coordinate_frame(size=0.1)
 
-            # o3d.visualization.draw_geometries([orginal_pcd, origin], mesh_show_back_face=True, window_name='orginal point cloud')
-            # o3d.visualization.draw_geometries([object_pcd_th, origin], mesh_show_back_face=True, window_name='thresholded point cloud')
-            # o3d.visualization.draw_geometries([pcd, origin], mesh_show_back_face=True, window_name='marching cubes point cloud')
-            # o3d.visualization.draw_geometries([pcd_th, origin], mesh_show_back_face=True, window_name='thresholded marching cubes point cloud')
+            o3d.visualization.draw_geometries([object_pcd_th, origin], mesh_show_back_face=True, window_name='orginal point cloud')
+            o3d.visualization.draw_geometries([object_pcd_th, origin], mesh_show_back_face=True, window_name='thresholded point cloud')
+            o3d.visualization.draw_geometries([pcd, origin], mesh_show_back_face=True, window_name='marching cubes point cloud')
+            o3d.visualization.draw_geometries([pcd_th, origin], mesh_show_back_face=True, window_name='thresholded marching cubes point cloud')
 
             print(1, verts_th.shape[0], faces_th.shape)
             print(2, np.asarray(mesh.vertices).shape[0], np.asarray(mesh.triangles).shape[0])
 
-            o3d.io.write_triangle_mesh(TEST_QUERY_PATH.replace('_query.json', '_mesh.ply'), mesh)
-            o3d.io.write_point_cloud(TEST_QUERY_PATH.replace('.json', '_1000.pcd'), orginal_pcd)
-            o3d.io.write_point_cloud(TEST_QUERY_PATH.replace('_query.json', 'th_neg00003_pos00002_1000.pcd'), pcd)
-            o3d.io.write_point_cloud(TEST_QUERY_PATH.replace('_query.json', 'mc_1000.pcd'), pcd)
-            o3d.io.write_point_cloud(TEST_QUERY_PATH.replace('_query.json', 'th_neg00003_pos00002_mc_1000.pcd'), pcd)
+            # o3d.io.write_triangle_mesh(TEST_QUERY_PATH.replace('_query.json', '_mesh.ply'), mesh)
+            # o3d.io.write_point_cloud(TEST_QUERY_PATH.replace('.json', '_1000.pcd'), orginal_pcd)
+            # o3d.io.write_point_cloud(TEST_QUERY_PATH.replace('_query.json', 'th_neg00003_pos00002_1000.pcd'), pcd)
+            # o3d.io.write_point_cloud(TEST_QUERY_PATH.replace('_query.json', 'mc_1000.pcd'), pcd)
+            # o3d.io.write_point_cloud(TEST_QUERY_PATH.replace('_query.json', 'th_neg00003_pos00002_mc_1000.pcd'), pcd)
             print(f"\nSAVED: {TEST_QUERY_PATH}\n\n")
-            continue
+            exit(777)
 
             # mesh2 = o3d.io.read_triangle_mesh(TEST_QUERY_PATH.replace('_query.json', '_mesh.ply'))
             # print(3, np.asarray(mesh2.vertices).shape[0], np.asarray(mesh2.triangles).shape[0])

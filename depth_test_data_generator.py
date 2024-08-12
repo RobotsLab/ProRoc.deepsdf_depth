@@ -16,7 +16,7 @@ from depth_image_generator import translate, scale, rotate
 from depth_training_data_generator import generate_pcd
 
 
-K = 150
+K = 100
 REJECTION_ANGLE = 25
 QUERY = False
 
@@ -65,6 +65,54 @@ class TestFile():
             json.dump(dictionary, outfile)
         print("Saved:", save_path)
 
+    def visualize_dictionary(self, dictionary):
+        points = []
+        sdf_values = []
+        for key, value in dictionary.items():
+            u, v = map(int, key.split(','))
+            for point in value:
+                rd, dd, sdf = point
+                z = self.dz + rd + dd
+                if z > 0:  # Ignore points with zero depth
+                    x = (u - self.cx) * z / self.f
+                    y = (v - self.cy) * z / self.f
+                    points.append([x, y, z])
+                    sdf_values.append(sdf)
+
+        if not points:
+            print("No valid points to display.")
+            return
+
+        points = np.array(points)
+
+        sdf_values = np.array(sdf_values)
+
+        threshold = 1
+        filtered_indices = np.where(sdf_values < threshold)[0]
+        filtered_points = points[filtered_indices]
+        filtered_sdf_values = sdf_values[filtered_indices]
+
+        # plt.hist(filtered_sdf_values)
+        # plt.show()
+
+        # Normalize the SDF values to the range [0, 1]
+        sdf_min, sdf_max = filtered_sdf_values.min(), filtered_sdf_values.max()
+        sdf_normalized = (filtered_sdf_values - sdf_min) / (sdf_max - sdf_min)
+        # plt.hist(sdf_normalized)
+        # plt.show()
+        
+        # Use a colormap to map normalized SDF values to colors
+        colormap = plt.get_cmap('viridis')
+        colors = colormap(sdf_normalized)[:, :3]  # Extract RGB values from colormap
+
+        point_cloud = o3d.geometry.PointCloud()
+        point_cloud.points = o3d.utility.Vector3dVector(filtered_points)
+        point_cloud.colors = o3d.utility.Vector3dVector(colors)
+
+        origin = o3d.geometry.TriangleMesh.create_coordinate_frame(size=0.1)
+        o3d.visualization.draw_geometries([point_cloud, origin])
+        exit(777)
+
 
 def load_depth_file(input_file):
     with open(input_file.source_path, "r") as file:
@@ -85,9 +133,9 @@ def load_depth_file(input_file):
 def rejection_sampling(sdf):
     probability = random.random()
     rejection_function = np.exp(-K * sdf)
-    if rejection_function < 0.3:
-        rejection_function += 0.3
-    if probability < np.exp(-K * sdf):
+    if rejection_function < 0.1:
+        rejection_function += 0.1
+    if probability < rejection_function:
         return sdf
     else:
         return -1
@@ -116,27 +164,32 @@ def linspace_sampling(rd, fornt_bbox_z, back_bbox_z, num_samples, unique, visual
 
             # Compute distance of the query point from the surface
             sdf = scene.compute_distance(query_point).item()
+            sdf = rejection_sampling(sdf)
+            if sdf < 0:
+                continue
+            else:
+                visualize_dict[key].append([rd, dd, sdf])
 
-            visualize_dict[key].append([rd, dd, sdf])
+    # dd = random.uniform(0., 0.001)
 
-    dd = random.uniform(0., 0.001)
+    # z = fornt_bbox_z + rd - dd
+    # x = (input_file.cx - u) * z / input_file.f  # y on image is x in real world
+    # y = (input_file.cy - v) * z / input_file.f  # x on image is y in real world
 
-    z = fornt_bbox_z + rd - dd
-    x = (input_file.cx - u) * z / input_file.f  # y on image is x in real world
-    y = (input_file.cy - v) * z / input_file.f  # x on image is y in real world
+    # query_point = o3d.core.Tensor([[x, y, z]], dtype=o3d.core.Dtype.Float32)
 
-    query_point = o3d.core.Tensor([[x, y, z]], dtype=o3d.core.Dtype.Float32)
-
-    # Compute distance of the query point from the surface
-    sdf = scene.compute_distance(query_point).item()
+    # # Compute distance of the query point from the surface
+    # sdf = scene.compute_distance(query_point).item()
 
 
-    visualize_dict[key].append([rd, -dd, sdf])
-    visualize_dict[key].append([rd, dd, 0])
+    # visualize_dict[key].append([rd, -dd, sdf])
+    # visualize_dict[key].append([rd, dd, 0])
 
     return insiders, outsiders
 
 if __name__ == '__main__':
+    experiment_name = 'new_exp_6'
+
     train_new4_bottle = [
     # "examples/new_exp_3/data/training_data/bottle/10f709cecfbb8d59c2536abb1e8e5eab_5_a25_view4.json",
     # "examples/new_exp_3/data/training_data/bottle/10f709cecfbb8d59c2536abb1e8e5eab_5_a25_view9.json",
@@ -164,22 +217,21 @@ if __name__ == '__main__':
     # "examples/new_exp_3/data/training_data/laptop/16c49793f432cd4b33e4e0fe8cce118e_5_a25_view9.json",
     # "examples/new_exp_3/data/training_data/mug/1eaf8db2dd2b710c7d5b1b70ae595e60_5_a25_view4.json",
     # "examples/new_exp_3/data/training_data/mug/1eaf8db2dd2b710c7d5b1b70ae595e60_5_a25_view9.json",
-    "examples/new_exp_4/data/training_data/mug/10f6e09036350e92b3f21f1137c3c347_2_a25_view0.json",
-    "examples/new_exp_4/data/training_data/mug/10f6e09036350e92b3f21f1137c3c347_2_a25_view1.json",
-    "examples/new_exp_4/data/training_data/mug/10f6e09036350e92b3f21f1137c3c347_2_a25_view2.json",
-    "examples/new_exp_4/data/training_data/mug/10f6e09036350e92b3f21f1137c3c347_2_a25_view3.json",
-    "examples/new_exp_4/data/training_data/mug/10f6e09036350e92b3f21f1137c3c347_2_a25_view4.json",
-    "examples/new_exp_4/data/training_data/mug/10f6e09036350e92b3f21f1137c3c347_2_a25_view5.json",
-    "examples/new_exp_4/data/training_data/mug/10f6e09036350e92b3f21f1137c3c347_2_a25_view6.json",
-    "examples/new_exp_4/data/training_data/mug/10f6e09036350e92b3f21f1137c3c347_2_a25_view7.json",
-    "examples/new_exp_4/data/training_data/mug/10f6e09036350e92b3f21f1137c3c347_2_a25_view8.json",
-    "examples/new_exp_4/data/training_data/mug/10f6e09036350e92b3f21f1137c3c347_2_a25_view9.json",
+    f"examples/{experiment_name}/data/training_data/mug/10f6e09036350e92b3f21f1137c3c347_2_a25_view0.json",
+    f"examples/{experiment_name}/data/training_data/mug/10f6e09036350e92b3f21f1137c3c347_2_a25_view1.json",
+    f"examples/{experiment_name}/data/training_data/mug/10f6e09036350e92b3f21f1137c3c347_2_a25_view2.json",
+    f"examples/{experiment_name}/data/training_data/mug/10f6e09036350e92b3f21f1137c3c347_2_a25_view3.json",
+    f"examples/{experiment_name}/data/training_data/mug/10f6e09036350e92b3f21f1137c3c347_2_a25_view4.json",
+    f"examples/{experiment_name}/data/training_data/mug/10f6e09036350e92b3f21f1137c3c347_2_a25_view5.json",
+    f"examples/{experiment_name}/data/training_data/mug/10f6e09036350e92b3f21f1137c3c347_2_a25_view6.json",
+    f"examples/{experiment_name}/data/training_data/mug/10f6e09036350e92b3f21f1137c3c347_2_a25_view7.json",
+    f"examples/{experiment_name}/data/training_data/mug/10f6e09036350e92b3f21f1137c3c347_2_a25_view8.json",
+    f"examples/{experiment_name}/data/training_data/mug/10f6e09036350e92b3f21f1137c3c347_2_a25_view9.json",
     # "examples/new_exp_3/data/training_data/mug/15bd6225c209a8e3654b0ce7754570c8_5_a25_view4.json",
     # "examples/new_exp_3/data/training_data/mug/15bd6225c209a8e3654b0ce7754570c8_5_a25_view9.json",
     # "examples/new_exp_3/data/training_data/mug/141f1db25095b16dcfb3760e4293e310_5_a25_view4.json",
     # "examples/new_exp_3/data/training_data/mug/141f1db25095b16dcfb3760e4293e310_5_a25_view9.json"
 ]
-    experiment_name = 'new_exp_4'
     categories = ['mug']  # ['bottle', 'bowl', 'mug']
 
     with open(f'examples/{experiment_name}/data/dataset_config.json', 'r') as json_file:
@@ -245,7 +297,7 @@ if __name__ == '__main__':
 
             nans = 0
             problems = 0
-            num_samples = 100
+            num_samples = 10
             max_sdf = 0.02
             max_saved_sdf = 0
             samples = 1
@@ -280,6 +332,11 @@ if __name__ == '__main__':
                 else:
                     output_file.pixels.append(np.array([np.nan]))
                     visualize_dict[key].append([np.nan])
+
+
+            # output_file.get_camera_parameters(input_file.f, input_file.cx, input_file.cy)
+            # output_file.get_bounding_box_size(input_file.ndx, input_file.ndy, input_file.dz, input_file.dz2)
+            # output_file.visualize_dictionary(visualize_dict)
             output_file.save(visualize_dict)
             print("Total:", len(visualize_dict))
             print("Max saved sdf:", max_saved_sdf)

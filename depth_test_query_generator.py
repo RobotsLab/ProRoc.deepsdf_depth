@@ -16,7 +16,7 @@ from depth_image_generator import translate, scale, rotate
 from depth_training_data_generator import generate_pcd
 
 
-K = 150
+K = 100
 REJECTION_ANGLE = 25
 QUERY = False
 
@@ -67,6 +67,30 @@ class QueryFile():
         with open(save_path, "w") as outfile:
             json.dump(dictionary, outfile)
         print("Saved:", save_path)
+
+    def visualize_dictionary(self, dictionary):
+        points = []
+        for key, value in dictionary.items():
+            u, v = map(int, key.split(','))
+            for point in value:
+                rd, dd, sdf = point
+                z = self.dz + rd + dd
+                if z > 0:  # Ignore points with zero depth
+                    x = (u - self.cx) * z / self.f
+                    y = (v - self.cy) * z / self.f
+                    points.append([x, y, z])
+
+        if not points:
+            print("No valid points to display.")
+            return
+
+        points = np.array(points)
+        point_cloud = o3d.geometry.PointCloud()
+        point_cloud.points = o3d.utility.Vector3dVector(points)
+
+        origin = o3d.geometry.TriangleMesh.create_coordinate_frame(size=0.1)
+        o3d.visualization.draw_geometries([point_cloud, origin])
+        exit(777)
 
 
 def load_depth_file(input_file):
@@ -131,6 +155,8 @@ def halo_sampling(rd, fornt_bbox_z, first_surface, num_samples, unique, visualiz
 
 
 if __name__ == '__main__':
+    experiment_name = 'new_exp_6'
+
     train_new4_bottle = [
     # "examples/new_exp_3/data/training_data/bottle/10f709cecfbb8d59c2536abb1e8e5eab_5_a25_view4.json",
     # "examples/new_exp_3/data/training_data/bottle/10f709cecfbb8d59c2536abb1e8e5eab_5_a25_view9.json",
@@ -164,18 +190,17 @@ if __name__ == '__main__':
     # "examples/new_exp_3/data/training_data/mug/15bd6225c209a8e3654b0ce7754570c8_5_a25_view9.json",
     # "examples/new_exp_3/data/training_data/mug/141f1db25095b16dcfb3760e4293e310_5_a25_view4.json",
     # "examples/new_exp_3/data/training_data/mug/141f1db25095b16dcfb3760e4293e310_5_a25_view9.json"
-    "examples/new_exp_4/data/training_data/mug/10f6e09036350e92b3f21f1137c3c347_2_a25_view0.json",
-    "examples/new_exp_4/data/training_data/mug/10f6e09036350e92b3f21f1137c3c347_2_a25_view1.json",
-    "examples/new_exp_4/data/training_data/mug/10f6e09036350e92b3f21f1137c3c347_2_a25_view2.json",
-    "examples/new_exp_4/data/training_data/mug/10f6e09036350e92b3f21f1137c3c347_2_a25_view3.json",
-    "examples/new_exp_4/data/training_data/mug/10f6e09036350e92b3f21f1137c3c347_2_a25_view4.json",
-    "examples/new_exp_4/data/training_data/mug/10f6e09036350e92b3f21f1137c3c347_2_a25_view5.json",
-    "examples/new_exp_4/data/training_data/mug/10f6e09036350e92b3f21f1137c3c347_2_a25_view6.json",
-    "examples/new_exp_4/data/training_data/mug/10f6e09036350e92b3f21f1137c3c347_2_a25_view7.json",
-    "examples/new_exp_4/data/training_data/mug/10f6e09036350e92b3f21f1137c3c347_2_a25_view8.json",
-    "examples/new_exp_4/data/training_data/mug/10f6e09036350e92b3f21f1137c3c347_2_a25_view9.json",
+    f"examples/{experiment_name}/data/training_data/mug/10f6e09036350e92b3f21f1137c3c347_2_a25_view0.json",
+    f"examples/{experiment_name}/data/training_data/mug/10f6e09036350e92b3f21f1137c3c347_2_a25_view1.json",
+    f"examples/{experiment_name}/data/training_data/mug/10f6e09036350e92b3f21f1137c3c347_2_a25_view2.json",
+    f"examples/{experiment_name}/data/training_data/mug/10f6e09036350e92b3f21f1137c3c347_2_a25_view3.json",
+    f"examples/{experiment_name}/data/training_data/mug/10f6e09036350e92b3f21f1137c3c347_2_a25_view4.json",
+    f"examples/{experiment_name}/data/training_data/mug/10f6e09036350e92b3f21f1137c3c347_2_a25_view5.json",
+    f"examples/{experiment_name}/data/training_data/mug/10f6e09036350e92b3f21f1137c3c347_2_a25_view6.json",
+    f"examples/{experiment_name}/data/training_data/mug/10f6e09036350e92b3f21f1137c3c347_2_a25_view7.json",
+    f"examples/{experiment_name}/data/training_data/mug/10f6e09036350e92b3f21f1137c3c347_2_a25_view8.json",
+    f"examples/{experiment_name}/data/training_data/mug/10f6e09036350e92b3f21f1137c3c347_2_a25_view9.json",
 ]
-    experiment_name = 'new_exp_4'
     categories = ['mug']
 
     with open(f'examples/{experiment_name}/data/dataset_config.json', 'r') as json_file:
@@ -240,7 +265,7 @@ if __name__ == '__main__':
 
             nans = 0
             problems = 0
-            num_samples = 100
+            num_samples = 10
             max_sdf = 0.02
             max_saved_sdf = 0
             samples = 1
@@ -278,8 +303,10 @@ if __name__ == '__main__':
             # pcd.points = o3d.utility.Vector3dVector(pcd_points_array)  # set pcd_np as the point cloud points
             # origin = o3d.geometry.TriangleMesh.create_coordinate_frame(size=0.1)
             # o3d.visualization.draw_geometries([pcd, scaled_mesh, origin])
-
-            output_file.save(visualize_dict)
+            output_file.get_camera_parameters(input_file.f, input_file.cx, input_file.cy)
+            output_file.get_bounding_box_size(input_file.ndx, input_file.ndy, input_file.dz, input_file.dz2)
+            output_file.visualize_dictionary(visualize_dict)
+            # output_file.save(visualize_dict)
             print("Total:", len(visualize_dict))
             print("Max saved sdf:", max_saved_sdf)
 

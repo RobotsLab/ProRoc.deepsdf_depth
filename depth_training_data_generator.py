@@ -14,7 +14,7 @@ from depth_image_generator import DepthImageFile
 from depth_file_generator import ViewFile, translate, scale, rotate
 
 
-K = 150
+K = 100
 REJECTION_ANGLE = 25
 
 class TrainingFile():
@@ -64,6 +64,54 @@ class TrainingFile():
             json.dump(dictionary, outfile)
         print("Saved:", os.path.join(self.destination_dir, self.name + f'_k{K}_inp_train' +'.json'))
 
+    def visualize_dictionary(self, dictionary, add):
+        points = []
+        sdf_values = []
+        for key, value in dictionary.items():
+            u, v = map(int, key.split(','))
+            for point in value:
+                rd, dd, sdf = point
+                z = self.dz + rd + dd
+                if z > 0:  # Ignore points with zero depth
+                    x = (u - self.cx) * z / self.f
+                    y = (v - self.cy) * z / self.f
+                    points.append([x, y, z])
+                    sdf_values.append(sdf)
+
+        if not points:
+            print("No valid points to display.")
+            return
+
+        points = np.array(points)
+
+        sdf_values = np.array(sdf_values)
+
+        threshold = 1
+        filtered_indices = np.where(sdf_values < threshold)[0]
+        filtered_points = points[filtered_indices]
+        filtered_sdf_values = sdf_values[filtered_indices]
+
+        plt.hist(filtered_sdf_values)
+        plt.show()
+
+        # Normalize the SDF values to the range [0, 1]
+        sdf_min, sdf_max = filtered_sdf_values.min(), filtered_sdf_values.max()
+        sdf_normalized = (filtered_sdf_values - sdf_min) / (sdf_max - sdf_min)
+        plt.hist(sdf_normalized)
+        plt.show()
+        
+        # Use a colormap to map normalized SDF values to colors
+        colormap = plt.get_cmap('viridis')
+        colors = colormap(sdf_normalized)[:, :3]  # Extract RGB values from colormap
+
+        point_cloud = o3d.geometry.PointCloud()
+        point_cloud.points = o3d.utility.Vector3dVector(filtered_points)
+        point_cloud.colors = o3d.utility.Vector3dVector(colors)
+
+        origin = o3d.geometry.TriangleMesh.create_coordinate_frame(size=0.1)
+        o3d.visualization.draw_geometries([point_cloud, origin])
+        exit(777)
+
 
 def load_depth_file(input_file):
     with open(input_file.source_path, "r") as file:
@@ -104,8 +152,8 @@ def generate_pcd(input_file):
 def rejection_sampling(sdf):
     probability = random.random()
     rejection_function = np.exp(-K * sdf)
-    if rejection_function < 0.3:
-        rejection_function += 0.3
+    if rejection_function < 0.1:
+        rejection_function += 0.1
     if probability < rejection_function:
         return sdf
     else:
@@ -173,77 +221,77 @@ def linspace_sampling(rd, fornt_bbox_z, back_bbox_z, num_samples, unique, visual
 
         visualize_dict[key].append([rd, dd, sdf])
     
-    for i, point_z in enumerate(unique):
-        dist = 0.001
-        if len(unique) > 1 and i == 0:
-            dist = min([dist, unique[i+1] - point_z])
-        elif len(unique) > 1 and i == len(unique) - 1:
-            dist = min([dist, point_z - unique[i - 1]])
-        elif len(unique) > 1:
-            dist = min([dist, point_z - unique[i - 1], unique[i+1] - point_z])
+    # for i, point_z in enumerate(unique):
+    #     dist = 0.001
+    #     if len(unique) > 1 and i == 0:
+    #         dist = min([dist, unique[i+1] - point_z])
+    #     elif len(unique) > 1 and i == len(unique) - 1:
+    #         dist = min([dist, point_z - unique[i - 1]])
+    #     elif len(unique) > 1:
+    #         dist = min([dist, point_z - unique[i - 1], unique[i+1] - point_z])
 
-        random_dist = random.uniform(0., dist)
-        pos_sample = point_z + random_dist
-        neg_sample = point_z - random_dist
+    #     random_dist = random.uniform(0., dist)
+    #     pos_sample = point_z + random_dist
+    #     neg_sample = point_z - random_dist
 
-        pos_dd = pos_sample - rd - fornt_bbox_z
-        neg_dd = neg_sample - rd - fornt_bbox_z
+    #     pos_dd = pos_sample - rd - fornt_bbox_z
+    #     neg_dd = neg_sample - rd - fornt_bbox_z
 
-        if halo:
-            z = fornt_bbox_z + rd - neg_dd
-            x = (input_file.cx - u) * z / input_file.f  # y on image is x in real world
-            y = (input_file.cy - v) * z / input_file.f  # x on image is y in real world
+    #     if halo:
+    #         z = fornt_bbox_z + rd - neg_dd
+    #         x = (input_file.cx - u) * z / input_file.f  # y on image is x in real world
+    #         y = (input_file.cy - v) * z / input_file.f  # x on image is y in real world
 
-            query_point = o3d.core.Tensor([[x, y, z]], dtype=o3d.core.Dtype.Float32)
+    #         query_point = o3d.core.Tensor([[x, y, z]], dtype=o3d.core.Dtype.Float32)
 
-            # Compute distance of the query point from the surface
-            sdf = scene.compute_distance(query_point).item()
-            # rejection sampling
-            sdf = rejection_sampling(sdf)
-            if sdf >= 0:
-                visualize_dict[key].append([rd, neg_dd, sdf])
+    #         # Compute distance of the query point from the surface
+    #         sdf = scene.compute_distance(query_point).item()
+    #         # rejection sampling
+    #         sdf = rejection_sampling(sdf)
+    #         if sdf >= 0:
+    #             visualize_dict[key].append([rd, neg_dd, sdf])
 
-            z = fornt_bbox_z + rd - pos_dd
-            x = (input_file.cx - u) * z / input_file.f  # y on image is x in real world
-            y = (input_file.cy - v) * z / input_file.f  # x on image is y in real world
+    #         z = fornt_bbox_z + rd - pos_dd
+    #         x = (input_file.cx - u) * z / input_file.f  # y on image is x in real world
+    #         y = (input_file.cy - v) * z / input_file.f  # x on image is y in real world
 
-            query_point = o3d.core.Tensor([[x, y, z]], dtype=o3d.core.Dtype.Float32)
+    #         query_point = o3d.core.Tensor([[x, y, z]], dtype=o3d.core.Dtype.Float32)
 
-            # Compute distance of the query point from the surface
-            sdf = scene.compute_distance(query_point).item()
-            # rejection sampling
-            sdf = rejection_sampling(sdf)
-            if sdf >= 0:
-                visualize_dict[key].append([rd, pos_dd, sdf])
+    #         # Compute distance of the query point from the surface
+    #         sdf = scene.compute_distance(query_point).item()
+    #         # rejection sampling
+    #         sdf = rejection_sampling(sdf)
+    #         if sdf >= 0:
+    #             visualize_dict[key].append([rd, pos_dd, sdf])
 
-        elif i % 2 == 0 and not halo:
-            z = fornt_bbox_z + rd - neg_dd
-            x = (input_file.cx - u) * z / input_file.f  # y on image is x in real world
-            y = (input_file.cy - v) * z / input_file.f  # x on image is y in real world
+    #     elif i % 2 == 0 and not halo:
+    #         z = fornt_bbox_z + rd - neg_dd
+    #         x = (input_file.cx - u) * z / input_file.f  # y on image is x in real world
+    #         y = (input_file.cy - v) * z / input_file.f  # x on image is y in real world
 
-            query_point = o3d.core.Tensor([[x, y, z]], dtype=o3d.core.Dtype.Float32)
+    #         query_point = o3d.core.Tensor([[x, y, z]], dtype=o3d.core.Dtype.Float32)
 
-            # Compute distance of the query point from the surface
-            sdf = scene.compute_distance(query_point).item()
-            # rejection sampling
-            sdf = rejection_sampling(sdf)
-            if sdf >= 0:
-                visualize_dict[key].append([rd, neg_dd, sdf])
-                visualize_dict[key].append([rd, pos_dd, 0])
-        elif i % 2 == 1 and not halo:
-            z = fornt_bbox_z + rd - pos_dd
-            x = (input_file.cx - u) * z / input_file.f  # y on image is x in real world
-            y = (input_file.cy - v) * z / input_file.f  # x on image is y in real world
+    #         # Compute distance of the query point from the surface
+    #         sdf = scene.compute_distance(query_point).item()
+    #         # rejection sampling
+    #         sdf = rejection_sampling(sdf)
+    #         if sdf >= 0:
+    #             visualize_dict[key].append([rd, neg_dd, sdf])
+    #             visualize_dict[key].append([rd, pos_dd, 0])
+    #     elif i % 2 == 1 and not halo:
+    #         z = fornt_bbox_z + rd - pos_dd
+    #         x = (input_file.cx - u) * z / input_file.f  # y on image is x in real world
+    #         y = (input_file.cy - v) * z / input_file.f  # x on image is y in real world
 
-            query_point = o3d.core.Tensor([[x, y, z]], dtype=o3d.core.Dtype.Float32)
+    #         query_point = o3d.core.Tensor([[x, y, z]], dtype=o3d.core.Dtype.Float32)
 
-            # Compute distance of the query point from the surface
-            sdf = scene.compute_distance(query_point).item()
-            # rejection sampling
-            sdf = rejection_sampling(sdf)
-            if sdf >= 0:
-                visualize_dict[key].append([rd, pos_dd, sdf])
-                visualize_dict[key].append([rd, neg_dd, 0])
+    #         # Compute distance of the query point from the surface
+    #         sdf = scene.compute_distance(query_point).item()
+    #         # rejection sampling
+    #         sdf = rejection_sampling(sdf)
+    #         if sdf >= 0:
+    #             visualize_dict[key].append([rd, pos_dd, sdf])
+    #             visualize_dict[key].append([rd, neg_dd, 0])
     # value = visualize_dict[key]
     # print(value)
 
@@ -251,29 +299,29 @@ def linspace_sampling(rd, fornt_bbox_z, back_bbox_z, num_samples, unique, visual
 if __name__ == '__main__':
     files = [
         '10f709cecfbb8d59c2536abb1e8e5eab',
-        '13d991326c6e8b14fce33f1a52ee07f2',
-        '109d55a137c042f5760315ac3bf2c13e',
-        '1349b2169a97a0ff54e1b6f41fdd78a',
-        '1b4d7803a3298f8477bdcb8816a3fac9',
-        '2c1df84ec01cea4e525b133235812833',
-        '12ddb18397a816c8948bef6886fb4ac',
-        '292d2dda9923752f3e275dc4ab785b9f',
-        '1f507b26c31ae69be42930af58a36dce',
-        '2c61f0ba3236fe356dae27c417fa89b',
-        '2134ad3fc25a6284193a4c984002ed32',
-        '17069b6604fc28bfa2f5beb253216d5b',
-        '1eaf8db2dd2b710c7d5b1b70ae595e60',
-        '10f6e09036350e92b3f21f1137c3c347',
-        '15bd6225c209a8e3654b0ce7754570c8',
-        '141f1db25095b16dcfb3760e4293e310'
+        # '13d991326c6e8b14fce33f1a52ee07f2',
+        # '109d55a137c042f5760315ac3bf2c13e',
+        # '1349b2169a97a0ff54e1b6f41fdd78a',
+        # '1b4d7803a3298f8477bdcb8816a3fac9',
+        # '2c1df84ec01cea4e525b133235812833',
+        # '12ddb18397a816c8948bef6886fb4ac',
+        # '292d2dda9923752f3e275dc4ab785b9f',
+        # '1f507b26c31ae69be42930af58a36dce',
+        # '2c61f0ba3236fe356dae27c417fa89b',
+        # '2134ad3fc25a6284193a4c984002ed32',
+        # '17069b6604fc28bfa2f5beb253216d5b',
+        # '1eaf8db2dd2b710c7d5b1b70ae595e60',
+        # '10f6e09036350e92b3f21f1137c3c347',
+        # '15bd6225c209a8e3654b0ce7754570c8',
+        # '141f1db25095b16dcfb3760e4293e310'
     ]
     categories = ['mug']
-    experiment_name = 'new_exp_4'
+    experiment_name = 'new_exp_6'
     with open(f'examples/{experiment_name}/data/dataset_config.json', 'r') as json_file:
         config = json.load(json_file)
     
     for category in categories:
-        generated_files = [name.split('_k150')[0] for name in os.listdir(f'examples/{experiment_name}/data/training_data/{category}') if name.endswith(".json") and "train" in name]
+        generated_files = [name.split(f'_k{K}')[0] for name in os.listdir(f'examples/{experiment_name}/data/training_data/{category}') if name.endswith(".json") and "train" in name]
         names_json = [name.rstrip('.json') for name in os.listdir(f'examples/{experiment_name}/data/training_data/{category}') if name.endswith(".json") and not "train" in name]
         
         DESTINATION_PATH = f'examples/{experiment_name}/data/training_data/{category}'
@@ -307,6 +355,8 @@ if __name__ == '__main__':
             scaled_mesh = translate(scaled_mesh, [0, 0, 1.5])
 
             # pcd = generate_pcd(input_file)
+            # o3d.visualization.draw_geometries([scaled_mesh, pcd])
+
             # points = np.asarray(pcd.points)
             # print('pcd', np.mean(points, axis=0))
 
@@ -316,7 +366,7 @@ if __name__ == '__main__':
 
             nans = 0
             problems = 0
-            num_samples = 100
+            num_samples = 10
             max_sdf = 0.02
             max_saved_sdf = 0
             samples = 1
@@ -352,6 +402,9 @@ if __name__ == '__main__':
                     visualize_dict[key].append([np.nan])
                     nans += 1
 
+            # output_file.get_camera_parameters(input_file.f, input_file.cx, input_file.cy)
+            # output_file.get_bounding_box_size(input_file.ndx, input_file.ndy, input_file.dz, input_file.dz2)
+            # output_file.visualize_dictionary(visualize_dict, scaled_mesh)  # tu jest błąd
             output_file.save(visualize_dict)
 
             print("Total:", len(visualize_dict))
