@@ -4,29 +4,26 @@
     // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
     "version": "0.2.0",
     "configurations": [
-        // {
-        //     "name": "Python: Current File",
-        //     "type": "python",
-        //     "request": "launch",
-        //     "program": "${file}",
-        //     "console": "integratedTerminal"
-        // },
-        // {
-        //     "name": "(gdb) Attach",
-        //     "type": "cppdbg",
-        //     "request": "attach",
-        //     // "program": "/bin/python3",
-        //     "program": "${workspaceRoot}/bin/PreprocessMesh",
-        //     "processId": "${command:pickProcess}",
-        //     "stopAtEntry": True,
-        //     "MIMode": "gdb",
-        //     "setupCommands": [
-        //         {
-        //             "description": "Enable pretty-printing for gdb",
-        //             "text": "-enable-pretty-printing",
-        //             "ignoreFailures": true
-        //         }
-        //     ]
-        // }
+        {
+            "name": "Python Debugger: Testing debugger",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${file}",
+            "console": "integratedTerminal",
+            "args": [
+                "-e", "examples/new_exp_7", "-d", "data_YCB", "-s", "examples/splits/new_exp7_test.json"
+            ]
+        },
+        {
+            "name": "Python Debugger: Training debugger",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${file}",
+            "console": "integratedTerminal",
+            "args": [
+                "-e",
+                "examples/new_exp_7"
+            ]
+        }
     ]
 }

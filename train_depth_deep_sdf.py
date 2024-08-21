@@ -473,6 +473,10 @@ def main_function(experiment_directory, continue_from, batch_split):
 
             xyz = sdf_data[:, 0:2]
             sdf_gt = sdf_data[:, 2].unsqueeze(1)
+            
+            # num_samp_per_scene = xyz.size()[0]
+            # batch_split = xyz.size()[0]
+
             # print("XYZ:", xyz, xyz.size())
             # print("SDF_GT:", sdf_gt, sdf_gt.size())
 

@@ -16,7 +16,7 @@ from depth_image_generator import translate, scale, rotate
 from depth_training_data_generator import generate_pcd
 
 
-K = 100
+K = 200
 REJECTION_ANGLE = 25
 QUERY = False
 
@@ -133,8 +133,8 @@ def load_depth_file(input_file):
 def rejection_sampling(sdf):
     probability = random.random()
     rejection_function = np.exp(-K * sdf)
-    if rejection_function < 0.1:
-        rejection_function += 0.1
+    if rejection_function < 0.01:
+        rejection_function += 0.01
     if probability < rejection_function:
         return sdf
     else:
@@ -188,7 +188,7 @@ def linspace_sampling(rd, fornt_bbox_z, back_bbox_z, num_samples, unique, visual
     return insiders, outsiders
 
 if __name__ == '__main__':
-    experiment_name = 'new_exp_6'
+    experiment_name = 'new_exp_7'
 
     train_new4_bottle = [
     # "examples/new_exp_3/data/training_data/bottle/10f709cecfbb8d59c2536abb1e8e5eab_5_a25_view4.json",
@@ -297,10 +297,10 @@ if __name__ == '__main__':
 
             nans = 0
             problems = 0
-            num_samples = 10
+            num_samples = 100
             max_sdf = 0.02
             max_saved_sdf = 0
-            samples = 1
+            samples = 0
             output_file.pixels = []
             visualize_dict = {}
             fornt_bbox_z = input_file.dz  # + 0.05
@@ -332,7 +332,7 @@ if __name__ == '__main__':
                 else:
                     output_file.pixels.append(np.array([np.nan]))
                     visualize_dict[key].append([np.nan])
-
+                samples += len(visualize_dict[key])
 
             # output_file.get_camera_parameters(input_file.f, input_file.cx, input_file.cy)
             # output_file.get_bounding_box_size(input_file.ndx, input_file.ndy, input_file.dz, input_file.dz2)

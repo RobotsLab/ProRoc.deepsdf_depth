@@ -51,7 +51,7 @@ def reconstruct(
 
         decoder.eval()
         sdf_data = data.unpack_sdf_samples_from_ram(
-            test_sdf, num_samples
+            test_sdf, None
         ).cuda()
         xyz = sdf_data[:, 0:2]
         sdf_gt = sdf_data[:, 2].unsqueeze(1)
@@ -257,7 +257,7 @@ if __name__ == "__main__":
                 data_sdf,
                 0.01,  # [emp_mean,emp_var],
                 1.,
-                num_samples=30000,
+                num_samples=3000,
                 lr=5e-3,
                 l2reg=True,
             )

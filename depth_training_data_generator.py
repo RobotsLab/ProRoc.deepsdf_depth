@@ -14,7 +14,7 @@ from depth_image_generator import DepthImageFile
 from depth_file_generator import ViewFile, translate, scale, rotate
 
 
-K = 100
+K = 200
 REJECTION_ANGLE = 25
 
 class TrainingFile():
@@ -110,7 +110,6 @@ class TrainingFile():
 
         origin = o3d.geometry.TriangleMesh.create_coordinate_frame(size=0.1)
         o3d.visualization.draw_geometries([point_cloud, origin])
-        exit(777)
 
 
 def load_depth_file(input_file):
@@ -152,8 +151,8 @@ def generate_pcd(input_file):
 def rejection_sampling(sdf):
     probability = random.random()
     rejection_function = np.exp(-K * sdf)
-    if rejection_function < 0.1:
-        rejection_function += 0.1
+    if rejection_function < 0.01:
+        rejection_function += 0.01
     if probability < rejection_function:
         return sdf
     else:
@@ -316,7 +315,7 @@ if __name__ == '__main__':
         # '141f1db25095b16dcfb3760e4293e310'
     ]
     categories = ['mug']
-    experiment_name = 'new_exp_6'
+    experiment_name = 'new_exp_7'
     with open(f'examples/{experiment_name}/data/dataset_config.json', 'r') as json_file:
         config = json.load(json_file)
     
@@ -366,10 +365,10 @@ if __name__ == '__main__':
 
             nans = 0
             problems = 0
-            num_samples = 10
+            num_samples = 100
             max_sdf = 0.02
             max_saved_sdf = 0
-            samples = 1
+            samples = 0
             output_file.pixels = []
             visualize_dict = {}
             fornt_bbox_z = input_file.dz  # + 0.05
@@ -401,10 +400,10 @@ if __name__ == '__main__':
                     output_file.pixels.append(np.array([np.nan]))
                     visualize_dict[key].append([np.nan])
                     nans += 1
-
+                samples += len(visualize_dict[key])
             # output_file.get_camera_parameters(input_file.f, input_file.cx, input_file.cy)
             # output_file.get_bounding_box_size(input_file.ndx, input_file.ndy, input_file.dz, input_file.dz2)
-            # output_file.visualize_dictionary(visualize_dict, scaled_mesh)  # tu jest błąd
+            # output_file.visualize_dictionary(visualize_dict, scaled_mesh)
             output_file.save(visualize_dict)
 
             print("Total:", len(visualize_dict))
@@ -416,6 +415,8 @@ if __name__ == '__main__':
             print("PROBLEMS", problems)
             print("Samples", samples)
             print("--------------------------------------")
+            # exit(777)
+
             # if '_8_' in name_json:
             #     saved_files += 1
             # if saved_files == 8:

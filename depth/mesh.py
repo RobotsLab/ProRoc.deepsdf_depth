@@ -36,7 +36,7 @@ def create_mesh(
     samples = samples_from_file(filename)
     print("SAMPLES SIZE:", samples.size())
 
-    num_samples = N ** 2
+    num_samples = samples.size()[0]  # N ** 2
 
     samples.requires_grad = False
 
@@ -45,12 +45,12 @@ def create_mesh(
     while head < num_samples:
         sample_subset = samples[head : min(head + max_batch, num_samples), 0:2].cuda()
 
-        samples[head : min(head + max_batch, num_samples), 2] = (
-            deep_sdf.utils.decode_sdf(decoder, latent_vec, sample_subset)
-            .squeeze(1)
-            .detach()
-            .cpu()
-        )
+        samples[head : min(head + max_batch, num_samples), 2] = samples[head : min(head + max_batch, num_samples), 2]  #(
+            # deep_sdf.utils.decode_sdf(decoder, latent_vec, sample_subset)
+            # .squeeze(1)
+            # .detach()
+            # .cpu()
+        # )
         head += max_batch
 
     sdf_values = samples[:, 2]

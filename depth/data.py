@@ -122,8 +122,16 @@ def unpack_sdf_samples(filename, subsample=None):
         samples = torch.from_numpy(data_array)
         # if data_array[data_array < 0].any():
         #     print(filename, 'TUTAJ')
-        random_indices = (torch.rand(subsample) * data_array.shape[0]).long()
-        samples = torch.index_select(samples, 0, random_indices)
+        if subsample:
+            random_indices = (torch.rand(subsample) * data_array.shape[0]).long()
+            samples = torch.index_select(samples, 0, random_indices)
+        # print("First 10 rows before shuffling:")
+        # print(samples[:10])
+        # permutation for exp8
+        # permutation = torch.randperm(samples.size(0))
+        # samples = samples[permutation]
+        # print("\nFirst 10 rows after shuffling:")
+        # print(samples[:10])
         return samples
 
     except:
@@ -195,3 +203,30 @@ class SDFSamples(torch.utils.data.Dataset):
             )
         else:
             return unpack_sdf_samples(filename, self.subsample), idx
+        
+
+class RayDataset(torch.utils.data.Dataset):
+    def __init__(self, data_source, split):
+        self.data = []
+        self.load_data(data_source, split)
+
+    def load_data(self, data_source, split):
+        self.data_source = data_source
+        self.npyfiles = get_instance_filenames(data_source, split)
+        for file in self.npyfiles:
+            with open(os.path.join(self.data_source, ws.sdf_samples_subdir, file), 'r') as f:
+                data = json.load(f)
+                for key, points in data.items():
+                    for point in points:
+                        rd, dd, sdf = point
+                        self.data.append((rd, dd, sdf))
+        data_array = np.vstack(self.data)
+        self.samples = torch.from_numpy(data_array)
+
+
+    def __len__(self):
+        return len(self.data)
+
+    def __getitem__(self, idx):
+        return self.samples[idx], idx
+

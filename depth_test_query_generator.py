@@ -16,7 +16,7 @@ from depth_image_generator import translate, scale, rotate
 from depth_training_data_generator import generate_pcd
 
 
-K = 100
+K = 200
 REJECTION_ANGLE = 25
 QUERY = False
 
@@ -155,7 +155,7 @@ def halo_sampling(rd, fornt_bbox_z, first_surface, num_samples, unique, visualiz
 
 
 if __name__ == '__main__':
-    experiment_name = 'new_exp_6'
+    experiment_name = 'new_exp_7'
 
     train_new4_bottle = [
     # "examples/new_exp_3/data/training_data/bottle/10f709cecfbb8d59c2536abb1e8e5eab_5_a25_view4.json",
@@ -265,7 +265,7 @@ if __name__ == '__main__':
 
             nans = 0
             problems = 0
-            num_samples = 10
+            num_samples = 100
             max_sdf = 0.02
             max_saved_sdf = 0
             samples = 1
@@ -303,10 +303,10 @@ if __name__ == '__main__':
             # pcd.points = o3d.utility.Vector3dVector(pcd_points_array)  # set pcd_np as the point cloud points
             # origin = o3d.geometry.TriangleMesh.create_coordinate_frame(size=0.1)
             # o3d.visualization.draw_geometries([pcd, scaled_mesh, origin])
-            output_file.get_camera_parameters(input_file.f, input_file.cx, input_file.cy)
-            output_file.get_bounding_box_size(input_file.ndx, input_file.ndy, input_file.dz, input_file.dz2)
-            output_file.visualize_dictionary(visualize_dict)
-            # output_file.save(visualize_dict)
+            # output_file.get_camera_parameters(input_file.f, input_file.cx, input_file.cy)
+            # output_file.get_bounding_box_size(input_file.ndx, input_file.ndy, input_file.dz, input_file.dz2)
+            # output_file.visualize_dictionary(visualize_dict)
+            output_file.save(visualize_dict)
             print("Total:", len(visualize_dict))
             print("Max saved sdf:", max_saved_sdf)
 
