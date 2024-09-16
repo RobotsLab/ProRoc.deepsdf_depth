@@ -465,14 +465,14 @@ def main_function(experiment_directory, continue_from, batch_split):
             # Process the input data
             # print(sdf_data.size())
 
-            sdf_data = sdf_data.reshape(-1, 3)
+            sdf_data = sdf_data.reshape(-1, 5)
 
             num_sdf_samples = sdf_data.shape[0]
 
             sdf_data.requires_grad = False
 
-            xyz = sdf_data[:, 0:2]
-            sdf_gt = sdf_data[:, 2].unsqueeze(1)
+            xyz = sdf_data[:, 0:4]
+            sdf_gt = sdf_data[:, 4].unsqueeze(1)
             
             # num_samp_per_scene = xyz.size()[0]
             # batch_split = xyz.size()[0]
