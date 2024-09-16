@@ -44,13 +44,13 @@ def create_mesh(
 
     while head < num_samples:
         sample_subset = samples[head : min(head + max_batch, num_samples), 0:2].cuda()
-
-        samples[head : min(head + max_batch, num_samples), 2] = samples[head : min(head + max_batch, num_samples), 2]  #(
-            # deep_sdf.utils.decode_sdf(decoder, latent_vec, sample_subset)
-            # .squeeze(1)
-            # .detach()
-            # .cpu()
-        # )
+        # samples[head : min(head + max_batch, num_samples), 2]
+        samples[head : min(head + max_batch, num_samples), 2] = (
+            deep_sdf.utils.decode_sdf(decoder, latent_vec, sample_subset)
+            .squeeze(1)
+            .detach()
+            .cpu()
+        )
         head += max_batch
 
     sdf_values = samples[:, 2]

@@ -81,8 +81,8 @@ class PointsFromDepth:
         print(np.min(self.image, axis=0), np.max(self.image, axis=0))
         # self.image = self.image[self.image[:, 3] <= 0.01]
         z = np.array(self.image[:, 2])
-        x = (self.cx - self.image[:, 0]) * z / self.f  # y on image is x in real world
-        y = (self.cy - self.image[:, 1]) * z / self.f  # x on image is y in real world
+        x = (self.image[:, 0] - self.cx) * z / self.f  # y on image is x in real world
+        y = (self.image[:, 1] - self.cy) * z / self.f  # x on image is y in real world
 
         self.points = np.column_stack((x, y, z))
         pcd = o3d.geometry.PointCloud()  # create point cloud object
@@ -101,7 +101,7 @@ class PointsFromDepth:
 
         return pcd
     
-    def visualize_as_point_cloud(self, pixels, additional=''):
+    def visualize_as_point_cloud(self, pixels, additional=[]):
         points = []
         for (x, y), depth_values in pixels.items():
             for z in depth_values:
@@ -129,12 +129,9 @@ class PointsFromDepth:
         self.point_cloud.colors = o3d.utility.Vector3dVector(colors)
 
         origin = o3d.geometry.TriangleMesh.create_coordinate_frame(size=0.1)
-        if additional:
-            vis_list = [self.point_cloud, origin]
-            vis_list.extend(additional)
-            o3d.visualization.draw_geometries(vis_list)
-        else:
-            o3d.visualization.draw_geometries([self.point_cloud, origin])
+        vis_list = [self.point_cloud, origin]
+        vis_list.extend(additional)
+        o3d.visualization.draw_geometries(vis_list, window_name=self.__class__.__name__)
 
 
 def load_querry_points(path):
@@ -273,7 +270,7 @@ def filter_point_cloud(pcd):
     neighbors_distance = ans.neighbors_distance.reshape(10,k)
     a = 1+2
 
-def visualize_dictionary(depth_file, dictionary, add, training=False):
+def visualize_dictionary(depth_file, dictionary, add=[], training=False, window_name='window name'):
     points = []
     sdf_values = []
     for key, value in dictionary.items():
@@ -321,7 +318,10 @@ def visualize_dictionary(depth_file, dictionary, add, training=False):
     point_cloud.colors = o3d.utility.Vector3dVector(colors)
 
     origin = o3d.geometry.TriangleMesh.create_coordinate_frame(size=0.1)
-    # o3d.visualization.draw_geometries([point_cloud, origin, add])
+    visualize_list = [point_cloud, origin]
+    if add:
+        visualize_list.extend(add)
+    o3d.visualization.draw_geometries(visualize_list, window_name=window_name)
     return point_cloud
 
 if __name__ == '__main__':
@@ -332,15 +332,15 @@ if __name__ == '__main__':
     for category in categories:
         exp = "new_exp_7"
         # c:\Users\micha\OneDrive\Pulpit\DeepSDF\examples\new_exp_1\Reconstructions\600\Meshes\dataset_YCB_test\test_new_exp1_bottle
-        results_path = f'examples/{exp}/Reconstructions/600/Meshes/dataset_YCB_test/{exp}_{category}'
+        results_path = f'examples/new_exp_9/Reconstructions/600/Meshes/dataset_YCB_test/{exp}_{category}_old'
         names_txt = [name for name in os.listdir(results_path) if name.endswith('.npz')]
         for name in names_txt:
             print(name)
             SOURCE_PATH = f"data_YCB/SdfSamples/dataset_YCB_train/train_{exp}_{category}/{name.replace(f'_k{k}_inp_test.npz', '.json')}"
-            TEST_QUERY_PATH = f"data_YCB/SdfSamples/dataset_YCB_test/{exp}_{category}/{name.replace('.npz', '_query.json')}" #_k150_inp_train.json'
+            TEST_QUERY_PATH = f"data_YCB/SdfSamples/dataset_YCB_test/{exp}_{category}_old/{name.replace('.npz', '_query.json')}" #_k150_inp_train.json'
             RESULTS_PATH = os.path.join(results_path, name)
             TRAINING_PATH = f"data_YCB/SdfSamples/dataset_YCB_train/train_{exp}_{category}/{name.replace(f'test.npz', 'train.json')}"
-            TEST_PATH = f"data_YCB/SdfSamples/dataset_YCB_test/{exp}_{category}/{name.replace('.npz', '.json')}"
+            TEST_PATH = f"data_YCB/SdfSamples/dataset_YCB_test/{exp}_{category}_old/{name.replace('.npz', '.json')}"
             print(RESULTS_PATH.split('/')[-1])
             npz = load_querry_points(RESULTS_PATH)
             print("NPZ SHAPE:", npz.shape)
@@ -353,11 +353,11 @@ if __name__ == '__main__':
 
             with open(TRAINING_PATH, 'r') as f:
                 training_file = json.load(f)
-            training_pcd = visualize_dictionary(data_file, training_file, depth_pcd, training=True)
+            training_pcd = visualize_dictionary(data_file, training_file, add=[depth_pcd], training=True, window_name='training pcd')
 
             with open(TEST_PATH, 'r') as f:
                 test_file = json.load(f)
-            test_pcd = visualize_dictionary(data_file, test_file, depth_pcd)
+            test_pcd = visualize_dictionary(data_file, test_file, add=[depth_pcd], window_name='test pcd')
 
             input_file = []
             with open(TEST_QUERY_PATH, 'r') as f:
@@ -388,10 +388,10 @@ if __name__ == '__main__':
                         z = npz[itr][0] + npz[itr][1] + data_file.dz
                         sdf = npz[itr][2]
                         itr += 1
-                        # if sdf == previous_sdf:
-                        #     dupplicated_sdf += 1
-                        #     previous_sdf = sdf
-                        #     continue
+                        if sdf == previous_sdf:
+                            dupplicated_sdf += 1
+                            previous_sdf = sdf
+                            continue
                         visualize_dict[(x, y)].append(z)
                         object_image.append(np.array([x, y, z, sdf]))
                         previous_sdf = sdf
@@ -422,8 +422,7 @@ if __name__ == '__main__':
                 pcd.points = o3d.utility.Vector3dVector(verts)
 
             object_points.image = object_points.image[object_points.image[:, 3] >= -0.004]
-            object_points.image = object_points.image[object_points.image[:, 3] <= 0.004]  # zrobić jutro z prior knowledge albo reverse sampling
-
+            object_points.image = object_points.image[object_points.image[:, 3] <= 0.003]  # zrobić jutro z prior knowledge albo reverse sampling
             object_pcd_th = object_points.to_point_cloud(True)
             # filter_point_cloud(object_pcd)
 
@@ -464,12 +463,16 @@ if __name__ == '__main__':
                 print(2, np.asarray(mesh.vertices).shape[0], np.asarray(mesh.triangles).shape[0])
 
             # o3d.io.write_triangle_mesh(TEST_QUERY_PATH.replace('_query.json', '_mesh.ply'), mesh)
+            # o3d.io.write_point_cloud(TEST_QUERY_PATH.replace('.json', '.pcd'), orginal_pcd)
+            # o3d.io.write_point_cloud(TEST_QUERY_PATH.replace('test_query.json', 'train.pcd'), training_pcd)
+            # o3d.io.write_point_cloud(TEST_QUERY_PATH.replace('test_query.json', 'test.pcd'), test_pcd)
+
             # o3d.io.write_point_cloud(TEST_QUERY_PATH.replace('.json', '_1000.pcd'), orginal_pcd)
             # o3d.io.write_point_cloud(TEST_QUERY_PATH.replace('_query.json', 'th_neg00003_pos00002_1000.pcd'), object_pcd_th)
             # o3d.io.write_point_cloud(TEST_QUERY_PATH.replace('_query.json', 'mc_1000.pcd'), pcd)
             # o3d.io.write_point_cloud(TEST_QUERY_PATH.replace('_query.json', 'th_neg00003_pos00002_mc_1000.pcd'), pcd)
             print(f"\nSAVED: {TEST_QUERY_PATH}\n\n")
-            # exit(777)
+            exit(777)
 
             # mesh2 = o3d.io.read_triangle_mesh(TEST_QUERY_PATH.replace('_query.json', '_mesh.ply'))
             # print(3, np.asarray(mesh2.vertices).shape[0], np.asarray(mesh2.triangles).shape[0])
@@ -610,3 +613,5 @@ if __name__ == '__main__':
             
             # zrobić 5 kategorii
             # przygotować mesh'e z meshlaba ręcznie
+
+            # dodać współrzędne u, v względem środka centroida
