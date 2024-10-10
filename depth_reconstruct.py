@@ -53,8 +53,8 @@ def reconstruct(
         sdf_data = data.unpack_sdf_samples_from_ram(
             test_sdf, None
         ).cuda()
-        xyz = sdf_data[:, 0:2]
-        sdf_gt = sdf_data[:, 2].unsqueeze(1)
+        xyz = sdf_data[:, 0:4]
+        sdf_gt = sdf_data[:, 4].unsqueeze(1)
 
         sdf_gt = torch.clamp(sdf_gt, -clamp_dist, clamp_dist)
 

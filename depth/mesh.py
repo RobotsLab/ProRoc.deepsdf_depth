@@ -43,9 +43,9 @@ def create_mesh(
     head = 0
 
     while head < num_samples:
-        sample_subset = samples[head : min(head + max_batch, num_samples), 0:2].cuda()
+        sample_subset = samples[head : min(head + max_batch, num_samples), 0:4].cuda()
         # samples[head : min(head + max_batch, num_samples), 2]
-        samples[head : min(head + max_batch, num_samples), 2] = (
+        samples[head : min(head + max_batch, num_samples), 4] = (
             deep_sdf.utils.decode_sdf(decoder, latent_vec, sample_subset)
             .squeeze(1)
             .detach()
@@ -53,7 +53,7 @@ def create_mesh(
         )
         head += max_batch
 
-    sdf_values = samples[:, 2]
+    sdf_values = samples[:, 4]
     print("SAMPLES SIZE AFTER BATCHING:", samples.shape)
     
     # tutaj wywołać funkcję

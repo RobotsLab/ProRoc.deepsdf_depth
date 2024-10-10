@@ -78,15 +78,43 @@ def read_sdf_samples_into_ram(filename):
 
     object_image = []
 
+    u = []
+    v = []
+    for key in input_file.keys():
+        u.append(int(key.split(', ')[0]))
+        v.append(int(key.split(', ')[1]))
+
+    # Step 1: Find the minimum and maximum values in the pixel list
+    min_u = min(u)
+    max_u = max(u)
+
+    # # Step 2: Normalize the pixel values to the range [0, 1]
+    # u_normalized = (u - min_u) / (max_u - min_u)
+
+    # # Step 3: Scale the normalized values to the range [-0.1, 0.1]
+    # u_scaled = u_normalized * 0.2 - 0.1
+
+    # Step 1: Find the minimum and maximum values in the pixel list
+    min_v = min(v)
+    max_v = max(v)
+
     for key, value in input_file.items():
         for row in value:
             if np.any(np.isnan(row)):
                 break
             else:
+                u = int(key.split(', ')[0])
+                u_normalized = (u - min_u) / (max_u - min_u)
+                u_scaled = u_normalized * 0.2 - 0.1
+
+                v = int(key.split(', ')[1])
+                v_normalized = (v - min_v) / (max_v - min_v)
+                v_scaled = v_normalized * 0.2 - 0.1
+
                 dd = row[0]
                 rd = row[1]
                 sdf = row[2]
-                object_image.append(np.array([dd, rd, sdf]))
+                object_image.append(np.array([u_scaled, v_scaled, dd, rd, sdf]))
 
     data_array = np.vstack(object_image)
     samples = torch.from_numpy(data_array)

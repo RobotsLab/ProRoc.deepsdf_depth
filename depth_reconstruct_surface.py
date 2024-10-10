@@ -371,6 +371,19 @@ if __name__ == '__main__':
             itr = 0
             halo = 0
             dupplicated_sdf = 0
+
+            u = []
+            v = []
+            for key in input_file.keys():
+                u.append(int(key.split(', ')[0]))
+                v.append(int(key.split(', ')[1]))
+
+            min_u = min(u)
+            max_u = max(u)
+
+            min_v = min(v)
+            max_v = max(v)
+
             for key, value in input_file.items():
                 pixel = []
                 x, y = map(int, key.split(', '))
@@ -384,9 +397,9 @@ if __name__ == '__main__':
                 for i, row in enumerate(value):
                     if np.any(np.isnan(row)):
                         break
-                    elif np.float32(row[0]) == npz[itr][0] and np.float32(row[1]) == npz[itr][1]:
-                        z = npz[itr][0] + npz[itr][1] + data_file.dz
-                        sdf = npz[itr][2]
+                    else: #np.float32(row[0]) == npz[itr][0] and np.float32(row[1]) == npz[itr][1]:
+                        z = npz[itr][2] + npz[itr][3] + data_file.dz
+                        sdf = npz[itr][4]
                         itr += 1
                         if sdf == previous_sdf:
                             dupplicated_sdf += 1
@@ -395,8 +408,8 @@ if __name__ == '__main__':
                         visualize_dict[(x, y)].append(z)
                         object_image.append(np.array([x, y, z, sdf]))
                         previous_sdf = sdf
-                    else:
-                        miss_match += 1
+                    # else:
+                    #     miss_match += 1
 
             print("MISS MATCH:", miss_match)
             print("HALO", halo)
@@ -421,7 +434,7 @@ if __name__ == '__main__':
                 pcd = o3d.geometry.PointCloud()  # create point cloud object
                 pcd.points = o3d.utility.Vector3dVector(verts)
 
-            object_points.image = object_points.image[object_points.image[:, 3] >= -0.004]
+            object_points.image = object_points.image[object_points.image[:, 3] >= -0.003]
             object_points.image = object_points.image[object_points.image[:, 3] <= 0.003]  # zrobić jutro z prior knowledge albo reverse sampling
             object_pcd_th = object_points.to_point_cloud(True)
             # filter_point_cloud(object_pcd)
@@ -467,12 +480,12 @@ if __name__ == '__main__':
             # o3d.io.write_point_cloud(TEST_QUERY_PATH.replace('test_query.json', 'train.pcd'), training_pcd)
             # o3d.io.write_point_cloud(TEST_QUERY_PATH.replace('test_query.json', 'test.pcd'), test_pcd)
 
-            # o3d.io.write_point_cloud(TEST_QUERY_PATH.replace('.json', '_1000.pcd'), orginal_pcd)
-            # o3d.io.write_point_cloud(TEST_QUERY_PATH.replace('_query.json', 'th_neg00003_pos00002_1000.pcd'), object_pcd_th)
+            o3d.io.write_point_cloud(TEST_QUERY_PATH.replace('.json', '_1000.pcd'), orginal_pcd)
+            o3d.io.write_point_cloud(TEST_QUERY_PATH.replace('_query.json', 'th_neg003_pos003_1000.pcd'), object_pcd_th)
             # o3d.io.write_point_cloud(TEST_QUERY_PATH.replace('_query.json', 'mc_1000.pcd'), pcd)
-            # o3d.io.write_point_cloud(TEST_QUERY_PATH.replace('_query.json', 'th_neg00003_pos00002_mc_1000.pcd'), pcd)
+            # o3d.io.write_point_cloud(TEST_QUERY_PATH.replace('_query.json', 'th_neg003_pos003_mc_1000.pcd'), pcd)
             print(f"\nSAVED: {TEST_QUERY_PATH}\n\n")
-            exit(777)
+            # exit(777)
 
             # mesh2 = o3d.io.read_triangle_mesh(TEST_QUERY_PATH.replace('_query.json', '_mesh.ply'))
             # print(3, np.asarray(mesh2.vertices).shape[0], np.asarray(mesh2.triangles).shape[0])

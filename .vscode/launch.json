@@ -11,7 +11,7 @@
             "program": "${file}",
             "console": "integratedTerminal",
             "args": [
-                "-e", "examples/new_exp_7", "-d", "data_YCB", "-s", "examples/splits/new_exp7_test.json"
+                "-e", "examples/new_exp_9", "-d", "data_YCB", "-s", "examples/splits/new_exp7_test.json"
             ]
         },
         {
