@@ -188,7 +188,7 @@ def linspace_sampling(rd, fornt_bbox_z, back_bbox_z, num_samples, unique, visual
     return insiders, outsiders
 
 if __name__ == '__main__':
-    experiment_name = 'new_exp_7'
+    experiment_name = 'new_exp_10'
 
     train_new4_bottle = [
     # "examples/new_exp_3/data/training_data/bottle/10f709cecfbb8d59c2536abb1e8e5eab_5_a25_view4.json",
@@ -232,7 +232,7 @@ if __name__ == '__main__':
     # "examples/new_exp_3/data/training_data/mug/141f1db25095b16dcfb3760e4293e310_5_a25_view4.json",
     # "examples/new_exp_3/data/training_data/mug/141f1db25095b16dcfb3760e4293e310_5_a25_view9.json"
 ]
-    categories = ['mug']  # ['bottle', 'bowl', 'mug']
+    categories = ['mug', 'bottle', 'bowl']
 
     with open(f'examples/{experiment_name}/data/dataset_config.json', 'r') as json_file:
         config = json.load(json_file)
@@ -244,13 +244,13 @@ if __name__ == '__main__':
         saved_files = 0
         for name_json in names_json:
             view = int(name_json.split('view')[1])
-            # if not view in [4, 9]:
-            #     continue
+            if not view in [0, 2, 4, 5]:
+                continue
             object_name = name_json.split('_')[0]
 
             SOURCE_PATH = os.path.join(f'examples/{experiment_name}/data/training_data/{category}', name_json + '.json')
-            if not SOURCE_PATH in train_new4_bottle:
-                continue
+            # if not SOURCE_PATH in train_new4_bottle:
+            #     continue
             input_file = DepthImageFile(object_name)
             input_file.load(SOURCE_PATH)
 

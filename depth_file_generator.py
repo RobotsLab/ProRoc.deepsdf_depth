@@ -111,9 +111,9 @@ def create_directory(directory):
         print(f"Directory '{directory}' already exists.")
 
 if __name__ == '__main__':
-    categories = ['mug']  # , 'bowl', 'laptop', 'bottle', 'can', 'jar']
+    categories = ['mug', 'bowl', 'laptop', 'bottle', 'can', 'jar']
     random_rotation = False
-    experiment_name = 'new_exp_4'
+    experiment_name = 'new_exp_10'
 
     for category in categories:
         names = os.listdir(f'ShapeNetCore/{category}')

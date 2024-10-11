@@ -276,13 +276,16 @@ def visualize_dictionary(depth_file, dictionary, add=[], training=False, window_
     for key, value in dictionary.items():
         u, v = map(int, key.split(','))
         for point in value:
-            rd, dd, sdf = point
-            z = depth_file.dz + rd + dd
-            if z > 0:  # Ignore points with zero depth
-                x = (u - depth_file.cx) * z / depth_file.f
-                y = (v - depth_file.cy) * z / depth_file.f
-                points.append([x, y, z])
-                sdf_values.append(sdf)
+            try:
+                rd, dd, sdf = point
+                z = depth_file.dz + rd + dd
+                if z > 0:  # Ignore points with zero depth
+                    x = (u - depth_file.cx) * z / depth_file.f
+                    y = (v - depth_file.cy) * z / depth_file.f
+                    points.append([x, y, z])
+                    sdf_values.append(sdf)
+            except:
+                print(point)
 
     if not points:
         print("No valid points to display.")
@@ -324,25 +327,59 @@ def visualize_dictionary(depth_file, dictionary, add=[], training=False, window_
     o3d.visualization.draw_geometries(visualize_list, window_name=window_name)
     return point_cloud
 
+def scale_back(normalized_data):
+    
+    min_u = 534
+    max_u = 711
+    min_v = 232
+    max_v = 419
+    min_dd = 0.10000000000000009
+    max_dd = 0.30145583152771005
+    min_rd = -0.30101666450500497
+    max_rd = 0.3999999999999999
+    min_sdf = 0
+    max_sdf = 0.2930116653442383
+
+    u_normalized = normalized_data[:, 0]
+    v_normalized = normalized_data[:, 1]
+    dd_normalized = normalized_data[:, 2]
+    rd_normalized = normalized_data[:, 3]
+    sdf_normalized = normalized_data[:, 4]
+
+    # Scale back each variable to its original range
+    u_original = u_normalized * (max_u - min_u) + min_u
+    v_original = v_normalized * (max_v - min_v) + min_v
+    dd_original = dd_normalized * (max_dd - min_dd) + min_dd
+    rd_original = rd_normalized * (max_rd - min_rd) + min_rd
+    sdf_original = sdf_normalized * (max_sdf - min_sdf) + min_sdf
+
+    # Stack the results back into a single array of shape (90000, 5)
+    original_data = np.stack((u_original, v_original, dd_original, rd_original, sdf_original), axis=1)
+    
+    return original_data
+
+
 if __name__ == '__main__':
     vis = o3d.visualization.Visualizer()
     k = 200
     rejection_angle = 25
-    categories = ['mug', 'bottle', 'bowl']
+    categories = ['bowl', 'mug', 'bottle']  
     for category in categories:
-        exp = "new_exp_7"
+        exp = "new_exp_10"
         # c:\Users\micha\OneDrive\Pulpit\DeepSDF\examples\new_exp_1\Reconstructions\600\Meshes\dataset_YCB_test\test_new_exp1_bottle
-        results_path = f'examples/new_exp_9/Reconstructions/600/Meshes/dataset_YCB_test/{exp}_{category}_old'
+        results_path = f'examples/{exp}/Reconstructions/600/Meshes/dataset_YCB_test/test_{exp}_{category}_old'
         names_txt = [name for name in os.listdir(results_path) if name.endswith('.npz')]
-        for name in names_txt:
+        for name in names_txt[3:]:
             print(name)
             SOURCE_PATH = f"data_YCB/SdfSamples/dataset_YCB_train/train_{exp}_{category}/{name.replace(f'_k{k}_inp_test.npz', '.json')}"
-            TEST_QUERY_PATH = f"data_YCB/SdfSamples/dataset_YCB_test/{exp}_{category}_old/{name.replace('.npz', '_query.json')}" #_k150_inp_train.json'
+            TEST_QUERY_PATH = f"data_YCB/SdfSamples/dataset_YCB_test/test_{exp}_{category}_old/{name.replace('.npz', '_query.json')}" #_k150_inp_train.json'
             RESULTS_PATH = os.path.join(results_path, name)
             TRAINING_PATH = f"data_YCB/SdfSamples/dataset_YCB_train/train_{exp}_{category}/{name.replace(f'test.npz', 'train.json')}"
-            TEST_PATH = f"data_YCB/SdfSamples/dataset_YCB_test/{exp}_{category}_old/{name.replace('.npz', '.json')}"
+            TEST_PATH = f"data_YCB/SdfSamples/dataset_YCB_test/test_{exp}_{category}_old/{name.replace('.npz', '.json')}"
             print(RESULTS_PATH.split('/')[-1])
             npz = load_querry_points(RESULTS_PATH)
+
+            npz = scale_back(npz)
             print("NPZ SHAPE:", npz.shape)
             data_file = DepthImageFile(name.split("_")[0])
             data_file.load(SOURCE_PATH)
@@ -434,8 +471,8 @@ if __name__ == '__main__':
                 pcd = o3d.geometry.PointCloud()  # create point cloud object
                 pcd.points = o3d.utility.Vector3dVector(verts)
 
-            object_points.image = object_points.image[object_points.image[:, 3] >= -0.003]
-            object_points.image = object_points.image[object_points.image[:, 3] <= 0.003]  # zrobić jutro z prior knowledge albo reverse sampling
+            object_points.image = object_points.image[object_points.image[:, 3] >= -0.009]
+            object_points.image = object_points.image[object_points.image[:, 3] <= 0.009]  # zrobić jutro z prior knowledge albo reverse sampling
             object_pcd_th = object_points.to_point_cloud(True)
             # filter_point_cloud(object_pcd)
 
@@ -628,3 +665,17 @@ if __name__ == '__main__':
             # przygotować mesh'e z meshlaba ręcznie
 
             # dodać współrzędne u, v względem środka centroida
+
+            # do poniedziałku 14.10
+            # usunąć niepotrzebne rzeczy z dysku google,
+            # zapisać aktualne wyniki,
+            # dodać laptopy - nauczyć model w nocy z 4 kategoriami
+            # filtrowanie w 3D z dostępnych w MeshLabie,
+            # zrekonstruować meshe
+            # porównać z DeepSDF
+
+            # To remove outliers from a point cloud in MeshLab using a radius-based method, you can follow these steps:
+            
+            # Import the Point Cloud: Open MeshLab and import your point cloud file.
+            # Select the Filter: Go to Filters > Cleaning and Repairing > Remove Isolated Pieces (wrt Diameter).
+            # Set Parameters: In the dialog box, set the Max Diameter to define the radius within which points must have neighbors to be retained. Adjust the Min Number of Neighbors to specify the minimum number of points required within

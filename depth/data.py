@@ -78,43 +78,44 @@ def read_sdf_samples_into_ram(filename):
 
     object_image = []
 
-    u = []
-    v = []
-    for key in input_file.keys():
-        u.append(int(key.split(', ')[0]))
-        v.append(int(key.split(', ')[1]))
+    min_u = 534
+    max_u = 711
+    min_v = 232
+    max_v = 419
+    min_dd = 0.10000000000000009
+    max_dd = 0.30145583152771005
+    min_rd = -0.30101666450500497
+    max_rd = 0.3999999999999999
+    min_sdf = 0
+    max_sdf = 0.2930116653442383
 
-    # Step 1: Find the minimum and maximum values in the pixel list
-    min_u = min(u)
-    max_u = max(u)
-
-    # # Step 2: Normalize the pixel values to the range [0, 1]
-    # u_normalized = (u - min_u) / (max_u - min_u)
-
-    # # Step 3: Scale the normalized values to the range [-0.1, 0.1]
-    # u_scaled = u_normalized * 0.2 - 0.1
-
-    # Step 1: Find the minimum and maximum values in the pixel list
-    min_v = min(v)
-    max_v = max(v)
-
+    # Your updated code with scaling to [0, 1] and filtering negative rd values
     for key, value in input_file.items():
         for row in value:
             if np.any(np.isnan(row)):
-                break
+                continue  # Skip rows with NaN values
             else:
                 u = int(key.split(', ')[0])
-                u_normalized = (u - min_u) / (max_u - min_u)
-                u_scaled = u_normalized * 0.2 - 0.1
-
                 v = int(key.split(', ')[1])
-                v_normalized = (v - min_v) / (max_v - min_v)
-                v_scaled = v_normalized * 0.2 - 0.1
-
+                
                 dd = row[0]
                 rd = row[1]
                 sdf = row[2]
-                object_image.append(np.array([u_scaled, v_scaled, dd, rd, sdf]))
+                
+                # # Skip rows where rd is negative
+                # if rd < 0:
+                #     continue
+
+                # Normalize u, v, dd, rd, and sdf to [0, 1]
+                u_normalized = (u - min_u) / (max_u - min_u)
+                v_normalized = (v - min_v) / (max_v - min_v)
+                dd_normalized = (dd - min_dd) / (max_dd - min_dd)
+                rd_normalized = (rd - min_rd) / (max_rd - min_rd)
+                sdf_normalized = (sdf - min_sdf) / (max_sdf - min_sdf)
+
+                # Append the normalized values to the object_image
+                object_image.append(np.array([u_normalized, v_normalized, dd_normalized, rd_normalized, sdf_normalized]))
+
 
     data_array = np.vstack(object_image)
     samples = torch.from_numpy(data_array)
@@ -136,57 +137,46 @@ def unpack_sdf_samples(filename, subsample=None):
         with open(filename, 'r') as f:
             input_file = json.load(f)
         object_image = []
-        u = []
-        v = []
-        for key in input_file.keys():
-            u.append(int(key.split(', ')[0]))
-            v.append(int(key.split(', ')[1]))
 
-        # Step 1: Find the minimum and maximum values in the pixel list
-        min_u = min(u)
-        max_u = max(u)
+        min_u = 534
+        max_u = 711
+        min_v = 232
+        max_v = 419
+        min_dd = 0.10000000000000009
+        max_dd = 0.30145583152771005
+        min_rd = -0.30101666450500497
+        max_rd = 0.3999999999999999
+        min_sdf = 0
+        max_sdf = 0.2930116653442383
 
-        # # Step 2: Normalize the pixel values to the range [0, 1]
-        # u_normalized = (u - min_u) / (max_u - min_u)
-
-        # # Step 3: Scale the normalized values to the range [-0.1, 0.1]
-        # u_scaled = u_normalized * 0.2 - 0.1
-
-        # Step 1: Find the minimum and maximum values in the pixel list
-        min_v = min(v)
-        max_v = max(v)
-
-        # # Step 2: Normalize the pixel values to the range [0, 1]
-        # v_normalized = (v - min_v) / (max_v - min_v)
-
-        # # Step 3: Scale the normalized values to the range [-0.1, 0.1]
-        # v_scaled = v_normalized * 0.2 - 0.1
-
-        # for i, seq in enumerate(input_file.items()):
-        #     key, value = seq
-        #     for row in value:
-        #         if np.any(np.isnan(row)):
-        #             break
-        #         else:
-        #             row.extand([u_scaled[i], v_scaled[i]])
-
+        # Your updated code with scaling to [0, 1] and filtering negative rd values
         for key, value in input_file.items():
             for row in value:
                 if np.any(np.isnan(row)):
-                    break
+                    continue  # Skip rows with NaN values
                 else:
                     u = int(key.split(', ')[0])
-                    u_normalized = (u - min_u) / (max_u - min_u)
-                    u_scaled = u_normalized * 0.2 - 0.1
-
                     v = int(key.split(', ')[1])
-                    v_normalized = (v - min_v) / (max_v - min_v)
-                    v_scaled = v_normalized * 0.2 - 0.1
-
+                    
                     dd = row[0]
                     rd = row[1]
                     sdf = row[2]
-                    object_image.append(np.array([u_scaled, v_scaled, dd, rd, sdf]))
+                    
+                    # # Skip rows where rd is negative
+                    # if rd < 0:
+                    #     continue
+
+                    # Normalize u, v, dd, rd, and sdf to [0, 1]
+                    u_normalized = (u - min_u) / (max_u - min_u)
+                    v_normalized = (v - min_v) / (max_v - min_v)
+                    dd_normalized = (dd - min_dd) / (max_dd - min_dd)
+                    rd_normalized = (rd - min_rd) / (max_rd - min_rd)
+                    sdf_normalized = (sdf - min_sdf) / (max_sdf - min_sdf)
+
+                    # Append the normalized values to the object_image
+                    object_image.append(np.array([u_normalized, v_normalized, dd_normalized, rd_normalized, sdf_normalized]))
+
+
         data_array = np.vstack(object_image)
         samples = torch.from_numpy(data_array)
         # if data_array[data_array < 0].any():
