@@ -14,6 +14,8 @@ from sklearn.preprocessing import StandardScaler
 import alphashape
 import torch
 # import open3d.ml.torch as ml3d
+import numpy as np
+from collections import defaultdict
 
 from depth_file_generator import ViewFile
 from depth_image_generator import translate, scale, rotate
@@ -131,7 +133,7 @@ class PointsFromDepth:
         origin = o3d.geometry.TriangleMesh.create_coordinate_frame(size=0.1)
         vis_list = [self.point_cloud, origin]
         vis_list.extend(additional)
-        o3d.visualization.draw_geometries(vis_list, window_name=self.__class__.__name__)
+        # o3d.visualization.draw_geometries(vis_list, window_name=self.__class__.__name__)
 
 
 def load_querry_points(path):
@@ -359,23 +361,74 @@ def scale_back(normalized_data):
     return original_data
 
 
+def filter_points_by_neighbors(object_image, min_neighbors=3, fixed_distance=0.1, sdf_threshold=0.05):
+    """
+    Filters out points that don't have a certain amount of neighbors along the rays.
+
+    Parameters:
+    - object_image: List or ndarray of points where each point is [u, v, z, sdf].
+    - min_neighbors: Minimum number of neighbors required along the ray to keep the points.
+    - fixed_distance: The fixed distance between consecutive points along the ray (z-axis).
+
+    Returns:
+    - filtered_points: ndarray of filtered points that meet the neighbor threshold.
+    """
+
+    # Step 1: Group points by (u, v) coordinates
+    uv_groups = defaultdict(list)
+    for point in object_image:
+        u, v, z, sdf = point
+        uv_groups[(u, v)].append(point)
+
+    # Step 2: Filter out points based on the number of neighbors along z-axis
+    filtered_points = []
+    z_dict = defaultdict(list)  # To store z-values for each (u, v)
+
+    for (u, v), points in uv_groups.items():
+        # Sort points along the z-axis (depth)
+        points_sorted_by_z = sorted(points, key=lambda p: p[2])  # Sorting by z (depth)
+        # Count neighbors along z-axis
+        neighbors = []
+        for i in range(len(points_sorted_by_z) - 2):
+            current_point = points_sorted_by_z[i]
+            next_point = points_sorted_by_z[i + 1]
+            third_point = points_sorted_by_z[i + 2]
+            z_diff = abs(current_point[2] - next_point[2]) + abs(next_point[2] - third_point[2])  # Difference in z (depth)
+
+            if z_diff <= 2*fixed_distance:  # If the points are close enough along z
+                neighbors.append(current_point)
+                neighbors.append(next_point)
+                neighbors.append(third_point)
+        
+        # Deduplicate neighbors
+        neighbors = list({tuple(p): p for p in neighbors}.values())  # Remove duplicates
+        
+        # Check if the number of neighbors meets the threshold
+        if len(neighbors) >= min_neighbors:
+            filtered_points.extend(neighbors)
+            # Add z-values to the dictionary
+            z_dict[(u, v)] = [point[2] for point in neighbors]  # Store only the z-values
+
+    return np.array(filtered_points), z_dict
+
+
 if __name__ == '__main__':
     vis = o3d.visualization.Visualizer()
     k = 200
     rejection_angle = 25
-    categories = ['bowl', 'mug', 'bottle']  
+    categories = ['mug', 'bowl', 'bottle']
     for category in categories:
         exp = "new_exp_10"
-        # c:\Users\micha\OneDrive\Pulpit\DeepSDF\examples\new_exp_1\Reconstructions\600\Meshes\dataset_YCB_test\test_new_exp1_bottle
         results_path = f'examples/{exp}/Reconstructions/600/Meshes/dataset_YCB_test/test_{exp}_{category}_old'
         names_txt = [name for name in os.listdir(results_path) if name.endswith('.npz')]
-        for name in names_txt[3:]:
+        for name in names_txt:
             print(name)
             SOURCE_PATH = f"data_YCB/SdfSamples/dataset_YCB_train/train_{exp}_{category}/{name.replace(f'_k{k}_inp_test.npz', '.json')}"
             TEST_QUERY_PATH = f"data_YCB/SdfSamples/dataset_YCB_test/test_{exp}_{category}_old/{name.replace('.npz', '_query.json')}" #_k150_inp_train.json'
             RESULTS_PATH = os.path.join(results_path, name)
             TRAINING_PATH = f"data_YCB/SdfSamples/dataset_YCB_train/train_{exp}_{category}/{name.replace(f'test.npz', 'train.json')}"
             TEST_PATH = f"data_YCB/SdfSamples/dataset_YCB_test/test_{exp}_{category}_old/{name.replace('.npz', '.json')}"
+
             print(RESULTS_PATH.split('/')[-1])
             npz = load_querry_points(RESULTS_PATH)
 
@@ -437,6 +490,10 @@ if __name__ == '__main__':
                     else: #np.float32(row[0]) == npz[itr][0] and np.float32(row[1]) == npz[itr][1]:
                         z = npz[itr][2] + npz[itr][3] + data_file.dz
                         sdf = npz[itr][4]
+                        if npz[itr][3] < 0:
+                            previous_sdf = sdf
+                            itr += 1
+                            continue
                         itr += 1
                         if sdf == previous_sdf:
                             dupplicated_sdf += 1
@@ -450,10 +507,13 @@ if __name__ == '__main__':
 
             print("MISS MATCH:", miss_match)
             print("HALO", halo)
-            object_points = PointsFromDepth(data_file, object_image)
-            object_points.visualize_as_point_cloud(visualize_dict, [training_pcd])
-            plt.hist(object_points.image[:, 3], bins=50)
-            plt.show()
+            fixed_distance = 0.5/98
+            threshold = 0.5/99
+            filtered_points, z_dict = filter_points_by_neighbors(object_image, min_neighbors=3, fixed_distance=fixed_distance, sdf_threshold=threshold)
+            object_points = PointsFromDepth(data_file, filtered_points)
+            object_points.visualize_as_point_cloud(z_dict, [training_pcd])
+            # plt.hist(object_points.image[:, 3], bins=50)
+            # plt.show()
             print("object_points shape", object_points.image.shape)
             # continue
             # critical_points = critical_points_point_cloud(object_points, h_begin=0.00002, h_end=-0.00003, min_thickness=0.00004)
@@ -462,22 +522,22 @@ if __name__ == '__main__':
 
             # orginal_pcd = object_points.to_point_cloud()
             orginal_pcd = object_points.point_cloud
-            valid_points = np.column_stack((np.asarray(orginal_pcd.points), object_points.image[:, 3]))
 
             if MC:
+                valid_points = np.column_stack((np.asarray(orginal_pcd.points), object_points.image[:, 3]))
                 volume, spacing = create_volumetric_grid(valid_points, resolution)
                 verts, faces, normals, values = apply_marching_cubes(volume, spacing)
 
                 pcd = o3d.geometry.PointCloud()  # create point cloud object
                 pcd.points = o3d.utility.Vector3dVector(verts)
 
-            object_points.image = object_points.image[object_points.image[:, 3] >= -0.009]
-            object_points.image = object_points.image[object_points.image[:, 3] <= 0.009]  # zrobić jutro z prior knowledge albo reverse sampling
+            object_points.image = object_points.image[object_points.image[:, 3] >= -threshold]
+            object_points.image = object_points.image[object_points.image[:, 3] <= threshold]  # zrobić jutro z prior knowledge albo reverse sampling
             object_pcd_th = object_points.to_point_cloud(True)
             # filter_point_cloud(object_pcd)
 
-            valid_points_th = np.column_stack((np.asarray(object_pcd_th.points), object_points.image[:, 3]))
             if MC:
+                valid_points_th = np.column_stack((np.asarray(object_pcd_th.points), object_points.image[:, 3]))
                 volume_th, spacing_th = create_volumetric_grid(valid_points_th, resolution)
                 verts_th, faces_th, normals, values = apply_marching_cubes(volume_th, spacing_th)
 
@@ -503,22 +563,29 @@ if __name__ == '__main__':
 
             origin = o3d.geometry.TriangleMesh.create_coordinate_frame(size=0.1)
 
-            o3d.visualization.draw_geometries([orginal_pcd, origin], mesh_show_back_face=True, window_name='orginal point cloud')
-            o3d.visualization.draw_geometries([object_pcd_th, origin], mesh_show_back_face=True, window_name='thresholded point cloud')
+            # o3d.visualization.draw_geometries([orginal_pcd, origin], mesh_show_back_face=True, window_name='orginal point cloud')
+            # o3d.visualization.draw_geometries([object_pcd_th, origin], mesh_show_back_face=True, window_name='thresholded point cloud')
+
             if MC:
-                o3d.visualization.draw_geometries([pcd, origin], mesh_show_back_face=True, window_name='marching cubes point cloud')
-                o3d.visualization.draw_geometries([pcd_th, origin], mesh_show_back_face=True, window_name='thresholded marching cubes point cloud')
+                # o3d.visualization.draw_geometries([pcd, origin], mesh_show_back_face=True, window_name='marching cubes point cloud')
+                # o3d.visualization.draw_geometries([pcd_th, origin], mesh_show_back_face=True, window_name='thresholded marching cubes point cloud')
 
                 print(1, verts_th.shape[0], faces_th.shape)
                 print(2, np.asarray(mesh.vertices).shape[0], np.asarray(mesh.triangles).shape[0])
 
-            # o3d.io.write_triangle_mesh(TEST_QUERY_PATH.replace('_query.json', '_mesh.ply'), mesh)
-            # o3d.io.write_point_cloud(TEST_QUERY_PATH.replace('.json', '.pcd'), orginal_pcd)
+            mesh_pcd = o3d.geometry.TriangleMesh()
+            mesh_pcd.vertices = o3d.utility.Vector3dVector(np.asarray(orginal_pcd.points))
+
+            mesh_pcd_th = o3d.geometry.TriangleMesh()
+            mesh_pcd_th.vertices = o3d.utility.Vector3dVector(np.asarray(object_pcd_th.points))
+            save_filepath = os.path.join('DepthDeepSDFfillinggaps', category, 'reconstruction', name.replace('.npz', '_th'))
+            # o3d.io.write_triangle_mesh(TEST_QUERY_PATH.replace('.json', '_orginal.ply'), mesh_pcd)
+            o3d.io.write_triangle_mesh(save_filepath + '.ply', mesh_pcd_th)
             # o3d.io.write_point_cloud(TEST_QUERY_PATH.replace('test_query.json', 'train.pcd'), training_pcd)
             # o3d.io.write_point_cloud(TEST_QUERY_PATH.replace('test_query.json', 'test.pcd'), test_pcd)
 
-            o3d.io.write_point_cloud(TEST_QUERY_PATH.replace('.json', '_1000.pcd'), orginal_pcd)
-            o3d.io.write_point_cloud(TEST_QUERY_PATH.replace('_query.json', 'th_neg003_pos003_1000.pcd'), object_pcd_th)
+            # o3d.io.write_point_cloud(TEST_QUERY_PATH.replace('.json', '_orginal.pcd'), orginal_pcd)
+            o3d.io.write_point_cloud(save_filepath + '.pcd', object_pcd_th)
             # o3d.io.write_point_cloud(TEST_QUERY_PATH.replace('_query.json', 'mc_1000.pcd'), pcd)
             # o3d.io.write_point_cloud(TEST_QUERY_PATH.replace('_query.json', 'th_neg003_pos003_mc_1000.pcd'), pcd)
             print(f"\nSAVED: {TEST_QUERY_PATH}\n\n")
@@ -679,3 +746,20 @@ if __name__ == '__main__':
             # Import the Point Cloud: Open MeshLab and import your point cloud file.
             # Select the Filter: Go to Filters > Cleaning and Repairing > Remove Isolated Pieces (wrt Diameter).
             # Set Parameters: In the dialog box, set the Max Diameter to define the radius within which points must have neighbors to be retained. Adjust the Min Number of Neighbors to specify the minimum number of points required within
+
+            # spotkanie 16.10.2024
+            # wygenerować chmurę punktów z meshy deepsdf za pomocą kamery
+            # i odpalić algorytm do liczenia błędów
+            # Wykorzystać przewagę tego że zachowujemy widoczne punkty
+            # sprawdzić błąd dla części tylko widocznej i tylko niewidocznej
+            # porównania:
+            # 1. całościowe wynik pcd - mesh gt (shapenet) dla depthdeepsdf bierzemy najbliższy
+            # 2. tylko to co jest widoczne - obliczyć najbliższy punkt wygenerowany na meshu (punkt z gt mesh z deepsdf)
+            # 3. tylko to co jest niewidoczne - 
+            # deepsdf tak samo jest obiczane dla części widocznej i niewidocznej, czyli punkt - mesh, punkt z gt do mesha
+            # depthdeepsdf punkt-punkt
+            
+            # 1. filtr taki jaki mamy teraz
+            # 2. filtr po promieniu żeby wywalić te outliery
+            # 3. po progowaniu badamy monotoniczność funkcji sdf. Z tych co zostało sprawdzamy gdzie rosną a gdzie maleją
+            

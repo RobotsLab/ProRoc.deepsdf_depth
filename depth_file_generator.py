@@ -110,8 +110,23 @@ def create_directory(directory):
     else:
         print(f"Directory '{directory}' already exists.")
 
+# Point cloud sampling function
+def sample_points_from_mesh(mesh, num_points=10000):
+    """
+    Sample points from the surface of the mesh.
+    
+    Args:
+    - mesh: open3d TriangleMesh object.
+    - num_points: Number of points to sample.
+
+    Returns:
+    - numpy.ndarray: Sampled point cloud (num_points, 3).
+    """
+    sampled_points = mesh.sample_points_uniformly(number_of_points=num_points)
+    return np.asarray(sampled_points.points)
+
 if __name__ == '__main__':
-    categories = ['mug', 'bowl', 'laptop', 'bottle', 'can', 'jar']
+    categories = ['mug']  # 'mug', 'bowl', 'laptop', 'bottle', 'can', 'jar']
     random_rotation = False
     experiment_name = 'new_exp_10'
 
@@ -131,8 +146,8 @@ if __name__ == '__main__':
             if name in generated_files:
                 print("File was processed earlier")
                 continue
-            if not name.startswith("10f6"):
-                continue
+            # if not name.startswith("10f6"):
+                # continue
             SOURCE_PATH = os.path.join(f'ShapeNetCore/{category}', name, 'models/model_normalized.obj')
             DESTINATION_PATH = f'examples/{experiment_name}/data/{category}'
             create_directory(DESTINATION_PATH)
@@ -169,7 +184,7 @@ if __name__ == '__main__':
             else:
                 random_value = 0
 
-            step = 2
+            step = 5
 
             for i in range(10):
                 translations_and_rotations.append(np.array([0.,0.,0.,0 ,0,i*step + random_value]))
@@ -181,7 +196,16 @@ if __name__ == '__main__':
                 mesh = o3d.t.geometry.TriangleMesh.from_legacy(scaled_mesh)
                 scene = o3d.t.geometry.RaycastingScene()
                 scene.add_triangles(mesh)
+                # Point cloud sampling
+                num_points_to_sample = 10000
+                sampled_points = sample_points_from_mesh(scaled_mesh, num_points=num_points_to_sample)
 
+                pcd = o3d.geometry.PointCloud()  # create point cloud object
+                pcd.points = o3d.utility.Vector3dVector(sampled_points)  # set pcd_np as the point cloud points
+
+                origin = o3d.geometry.TriangleMesh.create_coordinate_frame(size=0.1)
+                o3d.visualization.draw_geometries([pcd, origin])
+                exit(777)
                 rotation_step = 0
                 camera_position = [0., 0., 1.5]
                 camera_rotation_degrees = [-rotation_step, 135, 270 - rotation_step]

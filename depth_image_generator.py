@@ -111,7 +111,7 @@ class DepthImageFile():
         self.point_cloud.points = o3d.utility.Vector3dVector(points)
         
         origin = o3d.geometry.TriangleMesh.create_coordinate_frame(size=0.1)
-        o3d.visualization.draw_geometries([self.point_cloud, origin])
+        o3d.visualization.draw_geometries([self.point_cloud, origin], window_name='visualize_as_point_cloud')
         # exit(777)
 
 def find_angle(v1, v2):
@@ -385,8 +385,8 @@ def stack_images(file, input_mesh, camera, view=0):
     return depth_image[file.ny:file.ny+file.ndy, file.nx:file.nx+file.ndx, :]
 
 if __name__ == '__main__':
-    categories = ['mug']  # ['bottle', 'bowl', 'mug']
-    experiment_name = 'new_exp_4'
+    categories = ['laptop']  # ['bottle', 'bowl', 'mug']
+    experiment_name = 'new_exp_11'
     with open(f'examples/{experiment_name}/data/dataset_config.json', 'r') as json_file:
         config = json.load(json_file)
     
@@ -394,7 +394,7 @@ if __name__ == '__main__':
         generated_files = [gf.split('.')[0] for gf in os.listdir(f'examples/{experiment_name}/data/training_data/{category}') if gf.endswith('.json')]
         names_json = [name for name in os.listdir(f'examples/{experiment_name}/data/{category}') if name.endswith(f"_{config['rotation_step']}.json")]
 
-        for current_iteration, name_json in enumerate(names_json):
+        for current_iteration, name_json in enumerate(names_json[2:]):
             name = name_json.split('_')[0]
             SOURCE_PATH = os.path.join(f'examples/{experiment_name}/data/{category}', name_json)
             MESH_PATH =  os.path.join(f'ShapeNetCore/{category}', name, 'models/model_normalized.obj')
@@ -414,7 +414,7 @@ if __name__ == '__main__':
             print("===================================================")
             print("SOURCE PATH", SOURCE_PATH)
             for view, frame in enumerate(view_file.frames):
-                if not name + f"_{config['rotation_step']}_a{POWER_FACTOR}_view{view}" in generated_files:
+                if name + f"_{config['rotation_step']}_a{POWER_FACTOR}_view{view}" in generated_files:
                     print("File was processed earlier")
                     continue
                 scaled_mesh = translate(scaled_mesh, frame[:3])
@@ -471,10 +471,11 @@ if __name__ == '__main__':
                 file_name = f"{depth_image_file.name}_{config['rotation_step']}_a{POWER_FACTOR}_view{view}.json"
                 destination_path = f'examples/{experiment_name}/data/training_data/{category}'
                 file_path = os.path.join(destination_path, file_name)
+                depth_image_file.save(f'examples/{experiment_name}/data/training_data/{category}', config['rotation_step'], POWER_FACTOR, view)
+
                 depth_file_view = DepthImageFile(name)
                 depth_file_view.load(file_path)
                 depth_file_view.visualize_as_point_cloud()
-                # depth_image_file.save(f'examples/{experiment_name}/data/training_data/{category}', config['rotation_step'], POWER_FACTOR, view)
                 depth_image_file.pixels.clear()
 
             # w tym programie musi być liczenie ścianek na promieniu, jeżeli:

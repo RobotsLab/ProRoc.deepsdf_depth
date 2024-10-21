@@ -133,8 +133,8 @@ def generate_pcd(input_file):
         u, v = key
         z = value[value != 0]
 
-        x = (input_file.cx - int(u)) * z / input_file.f  # y on image is x in real world
-        y = (input_file.cy - int(v)) * z / input_file.f  # x on image is y in real world
+        x = (int(u) - input_file.cx) * z / input_file.f  # y on image is x in real world
+        y = (int(v) - input_file.cy) * z / input_file.f  # x on image is y in real world
 
         points_data = np.column_stack([x, y, z])
         points.extend(points_data)
@@ -314,7 +314,7 @@ if __name__ == '__main__':
         # '15bd6225c209a8e3654b0ce7754570c8',
         # '141f1db25095b16dcfb3760e4293e310'
     ]
-    categories = ['mug', 'bottle', 'bowl']
+    categories = ['mug'] # 'mug', 'bottle', 'bowl']
     experiment_name = 'new_exp_10'
     with open(f'examples/{experiment_name}/data/dataset_config.json', 'r') as json_file:
         config = json.load(json_file)
@@ -349,12 +349,14 @@ if __name__ == '__main__':
             frame = input_mesh_file.frames[view]
             scaled_mesh = translate(scaled_mesh, frame[:3])
             scaled_mesh = rotate(scaled_mesh, frame[3:])
-            scaled_mesh = rotate(scaled_mesh, [0,0,90])
-            scaled_mesh = rotate(scaled_mesh, np.array([-135, 0, 0]))
+            scaled_mesh = rotate(scaled_mesh, [0,0,-90])
+            scaled_mesh = rotate(scaled_mesh, np.array([135, 0, 0]))
             scaled_mesh = translate(scaled_mesh, [0, 0, 1.5])
+            origin = o3d.geometry.TriangleMesh.create_coordinate_frame(size=0.1)
 
-            # pcd = generate_pcd(input_file)
-            # o3d.visualization.draw_geometries([scaled_mesh, pcd])
+            pcd = generate_pcd(input_file)
+            o3d.visualization.draw_geometries([scaled_mesh, pcd, origin])
+            exit(77)
 
             # points = np.asarray(pcd.points)
             # print('pcd', np.mean(points, axis=0))
@@ -374,6 +376,7 @@ if __name__ == '__main__':
             fornt_bbox_z = input_file.dz  # + 0.05
             back_bbox_z = input_file.dz2  # - 0.1
             print(len(input_file.pixels))
+
 
             for key, value in input_file.pixels.items():
                 unique = np.unique(value[value!=0])
