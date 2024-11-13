@@ -133,7 +133,7 @@ if __name__ == '__main__':
     mean_result = []
     for category in categories:
         exp = "new_exp_10"
-        results_path = f'examples/{exp}/Reconstructions/600/Meshes/dataset_YCB_test/test_{exp}_{category}_old'
+        results_path = f'examples/{exp}/Reconstructions/600/Meshes/dataset_YCB_test/test_{exp}_{category}_with0'
         names_txt = [name for name in os.listdir(results_path) if name.endswith('.npz')]
 
         iterations = 0
@@ -144,14 +144,15 @@ if __name__ == '__main__':
             object_name = name.split('_')[0]
             view = int(name.split('view')[1][0])
 
-            DEEPSDF_RESULTS = f'{category}_classic_deepsdf/1eaf8db2dd2b710c7d5b1b70ae595e60_5_a25_view4_k150_inp_test.ply'
+            DEEPSDF_RESULTS = f"DeepSDF_results/{category}_{name.replace('.npz', '_sampled.ply')}"
             GT_PATH = os.path.join(f'ShapeNetCore/{category}', name.split('_')[0], 'models/model_normalized.obj')
             SOURCE_PATH = f"data_YCB/SdfSamples/dataset_YCB_train/train_{exp}_{category}/{name.replace(f'_k{k}_inp_test.npz', '.json')}"
-            TEST_QUERY_PATH = f"data_YCB/SdfSamples/dataset_YCB_test/test_{exp}_{category}_old/{name.replace('.npz', '_query.json')}" #_k150_inp_train.json'
+            TEST_QUERY_PATH = f"data_YCB/SdfSamples/dataset_YCB_test/test_{exp}_{category}/{name.replace('.npz', '_query.json')}" #_k150_inp_train.json'
             RESULTS_PATH = os.path.join(results_path, name)
             TRAINING_PATH = f"data_YCB/SdfSamples/dataset_YCB_train/train_{exp}_{category}/{name.replace(f'test.npz', 'train.json')}"
             TEST_PATH = f"data_YCB/SdfSamples/dataset_YCB_test/test_{exp}_{category}_old/{name.replace('.npz', '.json')}"
-            DEPTH_RESULT_PATH = TEST_QUERY_PATH.replace('_query.json', '_th.pcd')
+            DEPTH_RESULT_PATH = os.path.join(results_path, f'{category}_' + name.replace('.npz', '_th_inv_v2.ply'))
+            CAMERA_PATH = f"DepthDeepSDFfillinggaps/{category}/camera_view/{object_name}_view{view}_camera.pcd"
 
             MESH_SOURCE_PATH = os.path.join(f"examples/{experiment_name}/data/{category}", object_name + f"_5.json")
             MESH_PATH =  os.path.join(f"ShapeNetCore/{category}", object_name, 'models/model_normalized.obj')
@@ -173,22 +174,37 @@ if __name__ == '__main__':
             points = sample_points_from_mesh(scaled_mesh, 15_000)
             sampled_gt = o3d.geometry.PointCloud()  # create point cloud object
             sampled_gt.points = o3d.utility.Vector3dVector(points)
+
+            object_color_array = np.zeros((15_000, 3))
+            object_color_array[:, 2] = 1
+            sampled_gt.colors = o3d.utility.Vector3dVector(object_color_array)
+
+            camera_pcd = o3d.io.read_point_cloud(CAMERA_PATH)
+
+            deepsdf_ply = o3d.io.read_triangle_mesh(DEEPSDF_RESULTS)
+            deepsdf_pcd = o3d.geometry.PointCloud()  # create point cloud object
+            deepsdf_pcd.points = o3d.utility.Vector3dVector(deepsdf_ply.vertices)
        
-            depthdeepsdf_pcd = o3d.io.read_point_cloud(DEPTH_RESULT_PATH)
+            depthdeepsdf_ply = o3d.io.read_triangle_mesh(DEPTH_RESULT_PATH)
+            depthdeepsdf_pcd = o3d.geometry.PointCloud()  # create point cloud object
+            depthdeepsdf_pcd.points = o3d.utility.Vector3dVector(depthdeepsdf_ply.vertices)
+
+            merged_points = np.vstack([np.asarray(camera_pcd.points), np.asarray(depthdeepsdf_pcd.points)])
+            merged_depthdeepsdf_pcd = o3d.geometry.PointCloud()
+            merged_depthdeepsdf_pcd.points = o3d.utility.Vector3dVector(merged_points)
+
             origin = o3d.geometry.TriangleMesh.create_coordinate_frame(size=0.1)
-            o3d.visualization.draw_geometries([sampled_gt, origin], mesh_show_back_face=True, window_name='orginal point cloud')
+            # o3d.visualization.draw_geometries([merged_depthdeepsdf_pcd, origin], mesh_show_back_face=True, window_name='orginal point cloud')
             dest_filepath = os.path.join('DepthDeepSDFfillinggaps', category, object_name + f'_view{view}_gt.pcd')
             print("SAVE FILE: ", dest_filepath)
-            o3d.io.write_point_cloud(dest_filepath, sampled_gt)
-            continue
+            # o3d.io.write_point_cloud(dest_filepath, sampled_gt)
+
             print(RESULTS_PATH.split('/')[-1])
             
             iterations += 1
-            input_data = extract_data(depthdeepsdf_pcd)
-            reference_data = extract_data(sampled_gt)
-
             losses = {}
-
+            # input_data = extract_data(deepsdf_pcd)
+            # reference_data = extract_data(sampled_gt)
             # for m in ['chamfer', 'hausdorff']:
             #     if metrics.exists(m):
             #         losses[m] = metrics.calculate(input_data, reference_data, m)
@@ -197,7 +213,7 @@ if __name__ == '__main__':
             # filtered_pcd = filter_closest_points(sampled_gt, depthdeepsdf_pcd)
 
             # Use the chamfer_hausdorff_distance function to calculate the distances
-            chamfer_dist, hausdorff_dist = chamfer_hausdorff_distance(depthdeepsdf_pcd, sampled_gt)
+            chamfer_dist, hausdorff_dist = chamfer_hausdorff_distance(merged_depthdeepsdf_pcd, sampled_gt)
             losses['chamfer'] = chamfer_dist
             losses['hausdorff'] = hausdorff_dist
 
@@ -206,15 +222,14 @@ if __name__ == '__main__':
             text_to_file.append(comparison_result)
             chamfer += losses['chamfer']
             hausdorff += losses['hausdorff']
-            o3d.visualization.draw_geometries([sampled_gt, origin], mesh_show_back_face=True, window_name='orginal point cloud')
-        continue
+            # o3d.visualization.draw_geometries([sampled_gt, origin], mesh_show_back_face=True, window_name='orginal point cloud')
+        
         mean_chamfer = chamfer/iterations
         mean_hausdorff = hausdorff/iterations
         mean_values = f"for class {category} mean chamfer: {mean_chamfer}, mean hausdorff: {mean_hausdorff}"
         mean_result.append(mean_values)
-    exit(777)
     print(mean_result)
-    with open('comparison_depthdeepsdf2.txt', 'w') as f:
+    with open('comparison_depthdeepsdf_total.txt', 'w') as f:
         for line in text_to_file:
             f.write(f"{line}\n")
         for line in mean_result:

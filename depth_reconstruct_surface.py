@@ -419,15 +419,15 @@ if __name__ == '__main__':
     categories = ['mug', 'bowl', 'bottle']
     for category in categories:
         exp = "new_exp_10"
-        results_path = f'examples/{exp}/Reconstructions/600/Meshes/dataset_YCB_test/test_{exp}_{category}_old'
+        results_path = f'examples/{exp}/Reconstructions/600/Meshes/dataset_YCB_test/test_{exp}_{category}_with0'
         names_txt = [name for name in os.listdir(results_path) if name.endswith('.npz')]
         for name in names_txt:
             print(name)
             SOURCE_PATH = f"data_YCB/SdfSamples/dataset_YCB_train/train_{exp}_{category}/{name.replace(f'_k{k}_inp_test.npz', '.json')}"
-            TEST_QUERY_PATH = f"data_YCB/SdfSamples/dataset_YCB_test/test_{exp}_{category}_old/{name.replace('.npz', '_query.json')}" #_k150_inp_train.json'
+            TEST_QUERY_PATH = f"data_YCB/SdfSamples/dataset_YCB_test/test_{exp}_{category}_with0/{name.replace('.npz', '_query.json')}" #_k150_inp_train.json'
             RESULTS_PATH = os.path.join(results_path, name)
             TRAINING_PATH = f"data_YCB/SdfSamples/dataset_YCB_train/train_{exp}_{category}/{name.replace(f'test.npz', 'train.json')}"
-            TEST_PATH = f"data_YCB/SdfSamples/dataset_YCB_test/test_{exp}_{category}_old/{name.replace('.npz', '.json')}"
+            TEST_PATH = f"data_YCB/SdfSamples/dataset_YCB_test/test_{exp}_{category}_with0/{name.replace('.npz', '.json')}"
 
             print(RESULTS_PATH.split('/')[-1])
             npz = load_querry_points(RESULTS_PATH)
@@ -563,8 +563,15 @@ if __name__ == '__main__':
 
             origin = o3d.geometry.TriangleMesh.create_coordinate_frame(size=0.1)
 
-            # o3d.visualization.draw_geometries([orginal_pcd, origin], mesh_show_back_face=True, window_name='orginal point cloud')
-            # o3d.visualization.draw_geometries([object_pcd_th, origin], mesh_show_back_face=True, window_name='thresholded point cloud')
+            # o3d.visualization.draw_geometries([orginal_pcd, origin], 
+            #                                   mesh_show_back_face=True, 
+            #                                   window_name='orginal point cloud',
+            #                                   lookat=np.array([0, 0, 0]),
+            #                                   up=np.array([0,0,1]),
+            #                                   front=np.array([0,0,0]),
+            #                                 #   zoom=
+            #                                   )
+            o3d.visualization.draw_geometries([object_pcd_th, origin], mesh_show_back_face=True, window_name='thresholded point cloud')
 
             if MC:
                 # o3d.visualization.draw_geometries([pcd, origin], mesh_show_back_face=True, window_name='marching cubes point cloud')
@@ -578,14 +585,14 @@ if __name__ == '__main__':
 
             mesh_pcd_th = o3d.geometry.TriangleMesh()
             mesh_pcd_th.vertices = o3d.utility.Vector3dVector(np.asarray(object_pcd_th.points))
-            save_filepath = os.path.join('DepthDeepSDFfillinggaps', category, 'reconstruction', name.replace('.npz', '_th'))
+            save_filepath = os.path.join('DepthDeepSDFfillinggaps', category, f'{category}_reconstruction', f'{category}_' + name.replace('.npz', '_th_inv_v2'))
             # o3d.io.write_triangle_mesh(TEST_QUERY_PATH.replace('.json', '_orginal.ply'), mesh_pcd)
             o3d.io.write_triangle_mesh(save_filepath + '.ply', mesh_pcd_th)
             # o3d.io.write_point_cloud(TEST_QUERY_PATH.replace('test_query.json', 'train.pcd'), training_pcd)
             # o3d.io.write_point_cloud(TEST_QUERY_PATH.replace('test_query.json', 'test.pcd'), test_pcd)
 
             # o3d.io.write_point_cloud(TEST_QUERY_PATH.replace('.json', '_orginal.pcd'), orginal_pcd)
-            o3d.io.write_point_cloud(save_filepath + '.pcd', object_pcd_th)
+            # o3d.io.write_point_cloud(save_filepath + '.pcd', object_pcd_th)
             # o3d.io.write_point_cloud(TEST_QUERY_PATH.replace('_query.json', 'mc_1000.pcd'), pcd)
             # o3d.io.write_point_cloud(TEST_QUERY_PATH.replace('_query.json', 'th_neg003_pos003_mc_1000.pcd'), pcd)
             print(f"\nSAVED: {TEST_QUERY_PATH}\n\n")
